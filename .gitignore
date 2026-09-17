@@ -24,6 +24,9 @@ build/
 *reference.json
 .lycheecache
 .notebookcache
+# Stray per-notebook notebooktester results the editor's background check drops in
+# the repo root instead of .notebookcache/ (filename = mangled absolute path).
+*.ipynb.json
 **/personal.ipynb
 config.toml
 .aider*
