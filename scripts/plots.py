@@ -16,9 +16,11 @@ never learns that streamlit exists.
 
 from __future__ import annotations
 
+import matplotlib.dates as mdates
 import pandas as pd
 import seaborn as sns
 from goad_toolkit.visualizer import BasePlot
+from matplotlib.lines import Line2D
 
 
 class BarPlot(BasePlot):
@@ -88,4 +90,115 @@ class BarPlotWithError(BasePlot):
         # Left to itself matplotlib puts this over the bars, which is the exact
         # thing 2.3 is about.
         self.ax.legend(loc="lower right", framealpha=1)
+        return self.fig, self.ax
+
+
+class RiseDeclinePlot(BasePlot):
+    """A line chart whose segments are coloured by direction, not by category.
+
+    Neither `LinePlot` (goad_toolkit) nor `BarPlot` above say anything about whether a
+    series is going up or down at a given point — that is exactly what "the rise and
+    decline of X" asks for, so it gets its own class rather than a kwarg bolted onto an
+    existing one.
+
+    Two colours carry the whole story: `settings.highlight_color` for a segment that
+    rose since the previous point, `settings.base_color` for one that fell or held
+    steady — grey-first, per 02.2's rule, since a climb is the finding and a flat or
+    falling stretch is the backdrop for it. A run of equal values keeps the direction
+    of the segment before it, so a plateau at a peak doesn't flip colour for no reason.
+    The legend gets exactly two entries (rise/decline), not one per segment.
+    """
+
+    def build(
+        self,
+        data: pd.DataFrame,
+        x: str,
+        y: str,
+        rise_color: str | None = None,
+        decline_color: str | None = None,
+        rise_label: str = "rising",
+        decline_label: str = "declining",
+        marker: str = "o",
+        **kwargs,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+
+        ordered = data.sort_values(x)
+        xs = ordered[x].to_numpy()
+        ys = ordered[y].to_numpy()
+        if len(xs) < 2:
+            raise ValueError(
+                "RiseDeclinePlot needs at least two points to have a direction"
+            )
+
+        rise_color = rise_color or self.settings.highlight_color
+        decline_color = decline_color or self.settings.base_color
+
+        rising = True
+        for i in range(1, len(xs)):
+            if ys[i] != ys[i - 1]:
+                rising = ys[i] > ys[i - 1]
+            color = rise_color if rising else decline_color
+            self.ax.plot(
+                xs[i - 1 : i + 1],
+                ys[i - 1 : i + 1],
+                color=color,
+                marker=marker,
+                **kwargs,
+            )
+
+        self.ax.legend(
+            handles=[
+                Line2D([0], [0], color=rise_color, marker=marker, label=rise_label),
+                Line2D(
+                    [0], [0], color=decline_color, marker=marker, label=decline_label
+                ),
+            ]
+        )
+        return self.fig, self.ax
+
+
+class EventMarker(BasePlot):
+    """A quiet vertical line at one date, with an arrow and a label pointing at it.
+
+    `VerticalDate` is a loud red dashed line that lands in the legend. This one is grey
+    (so it recedes behind the data, per 02.2's grey-first rule) and carries its own
+    label next to the line, so the legend does not need an entry for it.
+
+    Drawn on top of an existing chart with `plot_on`:
+
+        lines.plot_on(EventMarker(settings), date="2025-05-11", label="baby is born")
+
+    `height` is where the label sits, as a fraction of the axes height (0 = bottom,
+    1 = top), so it lands in the same place whatever the y-scale is. `text_offset_days`
+    is how far from the line the label starts, in days: negative puts the label to the
+    left of the line, positive to the right.
+    """
+
+    def build(
+        self,
+        date: str,
+        label: str,
+        height: float = 0.9,
+        text_offset_days: int = -30,
+        color: str = "grey",
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        # Numeric x, so the marker lands on the right day whether or not the axis
+        # carries timezone-aware timestamps.
+        x = mdates.date2num(pd.to_datetime(date))
+        self.ax.axvline(x, color=color, linestyle="--", linewidth=1.5, zorder=1)
+        self.ax.annotate(
+            label,
+            xy=(x, height),
+            xytext=(x + text_offset_days, height),
+            xycoords=("data", "axes fraction"),
+            textcoords=("data", "axes fraction"),
+            ha="right" if text_offset_days < 0 else "left",
+            va="center",
+            color="dimgray",
+            arrowprops={"arrowstyle": "->", "color": color},
+        )
         return self.fig, self.ax
