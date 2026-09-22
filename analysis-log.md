@@ -275,3 +275,181 @@ read next, same as before — not asserted as a conclusion here.
   neither is anyone's work, both deleted.
 - **Confirmed**: the cell 12 n-caption should count messages (not conversations) —
   matches what was already implemented, no code change needed.
+
+## Session — 2026-09-18: rebuilding "Praat Nederlands met mij" for lesson 2
+
+Goad six-stage interview, started from `roos_02.5-your_turn.ipynb` ("your turn"
+exercise), targeting the teacher's feedback on `roos_01.4`'s categories submission
+(published 2026-09-15, provisional grade 8/10).
+
+### Stage 1 — question
+
+- **Target chart**: `categories_13_praat_nl_met_mij.png` (`roos_01.4`, cell 23) — two
+  side-by-side bar panels, language mix (en/nl/fr) before vs. after the move to NL, for
+  the couple combined. This is the chart the teacher's `preattentive-gestalt` comment
+  ("2x3 dingen vergelijken, zet de barren naast elkaar") was about — literally 2 periods
+  × 3 languages.
+- **Proposition**: after the move, Louis's share of Dutch messages grows while Roos's
+  stays dominantly French — an asymmetric shift, not both partners moving together. Any
+  other outcome (symmetric shift, or no shift for Louis) would surprise her.
+- **Boring/null result named**: both people increasing Dutch roughly in step after the
+  move — "everyone adapts to the local language," nothing person-specific to say.
+- **Arc/motivation**: not neutral curiosity — the chart doubles as a personal nudge: if
+  the move alone hasn't already pulled Louis toward Dutch, that's the argument for Roos
+  to speak more Dutch with him herself so he learns faster.
+- **Origin**: prior hunch about the relationship (she already suspects herself of
+  "stubbornly" staying in French), not spotted while skimming the aggregate chart.
+- Answers the `verhaallijn` feedback ("wie zegt welke taal tegen wie") directly.
+
+### Stage 2 — data
+
+- Needed columns already exist or were added: `language` (`py3langid`, restricted to
+  en/nl/fr, `LanguageFeature` step, `min_chars=3` threshold below which a message is
+  `"unknown"`), `period` (before/after `MOVE_DATE` 2024-11-01), `author`.
+- **Fix applied in `roos_02.5-your_turn.ipynb`** (cell `c03`, the loading cell): Louis
+  appears under three export names (`Roos`, `~Louis Chessé`, `Louis`, `Louis Ancien`) —
+  added `canonical_author()` right after `load_own_chat()` so every downstream cell in
+  that notebook sees one `"Louis"`.
+- **`unknown` ≠ classifier uncertainty** — `LanguageFeature` marks a message `unknown`
+  purely on `len(message.strip()) < 3`, regardless of content.
+- **Unknown rate by author × period**: Louis 1.01% (before) → 3.01% (after move),
+  roughly triples; Roos 1.05% → 1.15%, flat.
+- **Sampled Louis's 296 after-move `unknown` messages**: 134 are `"Ok"`/`"ok"` (English
+  filler, not Dutch), 20 `"Ja"`/`"ja"` + 9 `"Ik"` (29 genuine Dutch tokens lost to the
+  cutoff), ~65 emoji-only, rest misc (numbers, punctuation).
+- **Student's read**: sub-3-character messages don't really reflect language practice
+  either way — keep dropping `unknown` from the percentages (no change), but add
+  explicit text stating the 3-character cutoff so a reader knows what's excluded and
+  why.
+- **Message-volume asymmetry raised**: Roos sends more messages than Louis overall
+  (before: Louis 18,149 / Roos 20,353; after: Louis 9,844 / Roos 15,090 — Louis's
+  volume nearly halves after the move). Resolved: both planned charts use each
+  person's own share (% of that person's own messages that period), so the volume
+  difference doesn't bias the comparison itself — but the per-period n (esp. Louis's
+  smaller post-move n) still belongs in the same n-caption the `spurious-correlations`
+  feedback asked for.
+- No new `Pipeline` steps needed — the person × period aggregation stays notebook-cell
+  code (exploratory/display logic, not reusable feature engineering).
+
+### Plan for the two charts (encoding, agreed so far)
+
+1. **Plot 1** — combined couple view, redone as one axes of grouped bars (x=language,
+   hue=period) instead of two side-by-side panels — the direct gestalt fix. Built with
+   `BarPlot` from `scripts/plots.py` (`hue=` passes through `**kwargs` to
+   `sns.barplot`, no new class needed).
+2. **Plot 2** — person-split, as a *difference* per language (Louis's % − Roos's %),
+   split by period (before/after → 6 bars: 3 languages × 2 periods) rather than
+   parallel bars per person.
+
+### Still open
+
+- [ ] Build Plot 1 and Plot 2 in `roos_02.5-your_turn.ipynb`.
+- [ ] Add the 3-character-cutoff methodology text.
+- [ ] Add the n-caption (messages per person × period).
+- [ ] Stage 3 (shape) and stage 4 (encoding) formal sign-off, stage 5 (critique) once
+      charts exist, stage 6 (verification).
+
+## Session 2026-09-21 — `roos_03.3-events-in-your-chat.ipynb`
+
+- **Bug fixed (cell 3):** `own["timestamp"]` arrives as text from the CSV, so
+  `.resample("D")` raised `TypeError: Only valid with DatetimeIndex`. Fix:
+  `own["timestamp"] = pd.to_datetime(own["timestamp"])` right after `load_own_chat()`.
+- **New section 3.3.5 ("the *how* row")**, ported from `roos_01.4`: the `child` and
+  `climbing` categories (`CATEGORY_PATTERNS`, unchanged; one `RegexFeature` per category
+  in a `Pipeline`). Counts reproduce 01.4: child 2,218 / climbing 1,578 messages.
+- **Weekly share plot** — `LinePlot` (grey raw weeks, coloured 4-week `RollingAvg`) plus a
+  `VerticalDate` per entry in `my_events`. Note `RollingAvg` is trailing, not centred like
+  the 01.4 version.
+- **Per-period bars** — `EventPeriod` (a `TransformBase` subclass defined in the notebook)
+  labels each message by the last event before it; drawn with `BarPlot` from
+  `scripts/plots.py`.
+- **Prediction left blank on purpose** — the markdown cell asks Roos to write it before
+  running the plots (the point of the notebook).
+
+### Still open
+
+- [ ] Write the prediction in 3.3.5 *before* reading the two new plots.
+- [ ] Decide whether the per-period split (four periods from `my_events`) is the
+      comparison that matches that prediction.
+- [ ] Section 3.3.7: what was falsifiable, and one impact that could not be found.
+
+## Session 2026-09-22
+
+- **`codestyle` MCP server was failing to connect**: `ModuleNotFoundError: No module
+  named 'mcp.server.mcpserver'`. Traced to a version conflict, not a missing package —
+  `codestyle_mcp.py`'s own PEP 723 header now pins `mcp[cli]>=2,<3`, but `.mcp.json`'s
+  launch command forced `uv run --with "mcp<2"` on top of it, so uv resolved an `mcp<2`
+  install that predates the `mcp.server.mcpserver` module the script imports.
+  **Fix applied**: dropped the `--with "mcp<2"` override in `.mcp.json` so `uv run` uses
+  the script's own declared dependency instead. Verified by launching the server
+  directly (`CODESTYLE_REF=stable uv run --no-project https://raw.githubusercontent.com/raoulg/codestyle/stable/codestyle_mcp.py`) — starts clean, no traceback. This is a
+  repo-wide file merged from the teacher's `origin`, so a future upstream merge could
+  reintroduce the stale pin; worth flagging to the class/teacher rather than treating as
+  fully resolved.
+- **New section 3.3.8 in `roos_03.3-events-in-your-chat.ipynb`**: a `nausea` category
+  (English/Dutch/French `RegexFeature`, same shape as `child`/`climbing`) plotted as a
+  weekly line (grey raw + 4-week `RollingAvg`, reusing `SMOOTH_WEEKS`) with three
+  `EventMarker`s from `scripts/plots.py` — positive pregnancy test, a **computed**
+  pregnancy-start date (`Benji's birth − 41 weeks = 2024-07-28`, the standard
+  last-period due-date convention, not a conception date), and Benji's birth.
+  **n=38 messages mention nausea** — thin next to `child` (2,274) or `climbing`
+  (1,764), flagged in the reflection cell as a signal to sanity-check per-week before
+  trusting any rise in the line.
+  **Prediction and reading left blank on purpose**, same convention as 3.3.5 — the
+  markdown cells ask Roos for her prediction and her read of the chart before either is
+  filled in; not answered here.
+  Verified by executing the full notebook with `jupyter nbconvert --execute --inplace`
+  — runs clean, no errors.
+
+- **Prediction recorded (3.3.8)**, in the student's own words: nausea messages expected
+  to start around week 5 of the pregnancy and disappear around week 16. Turned into
+  calendar dates off the same `pregnancy_start` anchor (2024-07-28): week 5 =
+  2024-09-01 (coincides exactly with the existing "positive pregnancy test" marker, so
+  no separate marker drawn for it), week 16 = 2024-11-17 — added as a fourth,
+  purple-coloured `EventMarker` ("predicted nausea ends") so the guess sits on the same
+  chart as the confirmed timeline, distinguishable by colour. Re-executed clean via
+  `jupyter nbconvert --execute --inplace`.
+  **Not yet answered**: whether the actual line matches the prediction — left for the
+  student to read against the n=38 caveat already in the notebook.
+
+- **New section 3.3.9**: re-scoped the nausea chart to a narrower question — pregnancy
+  window only (`pregnancy_start` to Benji's birth), Roos's own messages only, raw
+  mention counts (`n_nausea_words`, not a share) on the y-axis, x-axis switched from
+  calendar dates to week-of-pregnancy (week 1 = first week after `pregnancy_start`,
+  through week 41, missing weeks filled to 0 rather than dropped).
+  **Bug hit and fixed**: `own_nausea["timestamp"]` is tz-aware (`UTC`) but
+  `pregnancy_start`/`pregnancy_end` are naive `Timestamp`s — direct comparison raised
+  `TypeError: Invalid comparison between dtype=datetime64[us, UTC] and Timestamp`. Fixed
+  the same way the notebook's own `EventPeriod` class already does it: drop the tz on a
+  copy of the timestamp column (`.dt.tz_localize(None)`) rather than localising the
+  milestone dates to a timezone they were never given.
+  **Result**: 9,874 of Roos's messages fall inside the pregnancy window; 30 of the
+  dataset's 38 total nausea mentions are hers. Re-executed clean via
+  `jupyter nbconvert --execute --inplace`.
+
+- **New `RiseDeclinePlot` class added to `scripts/plots.py`**, at the student's request
+  ("use the base classes from script, add a subclass if necessary") — neither `BarPlot`
+  nor goad_toolkit's `LinePlot` encode *direction*. Draws a line whose segments are
+  coloured by whether the value rose or held/fell since the previous point
+  (`settings.highlight_color` / `settings.base_color`, grey-first per 02.2), with a
+  two-entry legend (not one per segment) built from `Line2D` proxies. Flat runs keep
+  the prior segment's direction rather than flipping colour with no real change.
+- **New section 3.3.10**: a `fatigue` category (English/Dutch/French `RegexFeature`,
+  word list flagged in the notebook for the student's own review — `\bmoe\b` is
+  boundary-matched against Dutch "moeder"/"moeite" but therefore also misses compounds
+  like "doodmoe"), same scope as 3.3.9 (Roos-only, pregnancy window, weekly counts,
+  week-of-pregnancy x-axis), plotted with the new `RiseDeclinePlot`.
+  **Result**: 584 messages mention fatigue dataset-wide; 157 of Roos's mentions fall
+  inside the pregnancy window — a much bigger n than nausea's 30, but also a much more
+  generic word set ("tired"/"moe" vs. "nausea"), so more of these hits are plausibly
+  ordinary tiredness rather than a pregnancy-specific signal — flagged, not resolved.
+  Re-executed clean via `jupyter nbconvert --execute --inplace`.
+
+### Still open
+
+- [ ] Read all three symptom charts (3.3.8 nausea/calendar, 3.3.9 nausea/week,
+      3.3.10 fatigue/week) against predictions and fill in each "What I found."
+- [ ] Review the `fatigue` word list — is generic tiredness noise acceptable, or does
+      it need narrowing (e.g. requiring co-occurrence with other pregnancy language)?
+- [ ] Decide whether to report the `.mcp.json` `codestyle` pin bug upstream/to the
+      teacher, since other students on `origin` likely hit the same error.
