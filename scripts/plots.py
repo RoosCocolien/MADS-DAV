@@ -159,6 +159,43 @@ class RiseDeclinePlot(BasePlot):
         return self.fig, self.ax
 
 
+class DistributionDiffPlot(BasePlot):
+    """How much more (or less) likely each value became, not the two distributions
+    themselves.
+
+    Takes the *difference* between an "after" and a "before" density/mass at the same
+    x -- the residual-over-time move (03.1, `SubtractBaseline`) applied to two fitted
+    shapes instead of two time periods. Positive: more likely after. Negative: less
+    likely after. Built for laying two people's (or two groups') shifts on one shared
+    axis with a zero line, when the two *directions* of change are the finding rather
+    than either distribution's shape on its own.
+
+        x = np.arange(1, 12)
+        diff = after_fit.frozen_dist.pmf(x) - before_fit.frozen_dist.pmf(x)
+        DistributionDiffPlot(settings).plot(x=x, diff=diff, label="Roos")
+
+    `x`/`diff` are computed in the notebook, not here -- this class only draws them,
+    same division of labour as `BarPlot` above.
+    """
+
+    def build(
+        self,
+        x,
+        diff,
+        color: str | None = None,
+        label: str | None = None,
+        fill: bool = True,
+        **kwargs,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        color = color or self.settings.highlight_color
+        self.ax.plot(x, diff, color=color, marker="o", label=label, **kwargs)
+        if fill:
+            self.ax.fill_between(x, diff, 0, color=color, alpha=0.15)
+        return self.fig, self.ax
+
+
 class EventMarker(BasePlot):
     """A quiet vertical line at one date, with an arrow and a label pointing at it.
 

@@ -453,3 +453,348 @@ exercise), targeting the teacher's feedback on `roos_01.4`'s categories submissi
       it need narrowing (e.g. requiring co-occurrence with other pregnancy language)?
 - [ ] Decide whether to report the `.mcp.json` `codestyle` pin bug upstream/to the
       teacher, since other students on `origin` likely hit the same error.
+
+## Session 2026-09-22 (cont'd) — new notebook, `roos_04.6-distribution.ipynb`
+
+- **Created `notebooks/lesson4/roos_04.6-distribution.ipynb`** — a new "your turn"
+  notebook, not a copy of a teacher file (lesson4 has no 04.6). Opening structure
+  mirrors `roos_03.3` and `roos_02.5`: intro, standard `goad_toolkit` distribution
+  imports (`DistributionRegistry`, `DistributionFitter`, `fit_table`, `HistogramPlot`,
+  `DistPlot`, `QQPlot`, `ECDFPlot`, `PlotFits`) plus the `scripts/plots.py` base classes,
+  `load_own_chat()` + `canonical_author()` setup, a "what's already loaded" section, and
+  a `goad` brainstorming section naming `goad_distribution_method` specifically.
+  **No analysis content yet, deliberately** — the student asked to be guided by
+  questions rather than handed a finished notebook, so the last cell is a blank "Your
+  turn" prompt (variable, independent-observation count, discrete/continuous,
+  predicted family — `goad_distribution_method`'s own step order) for her to answer
+  before any fitting happens, matching CLAUDE.md's coaching policy directly. Verified
+  by executing the setup cells (`jupyter nbconvert --execute --inplace`) — imports and
+  `load_own_chat()` run clean.
+- **Candidate variables discussed in chat** (not chosen yet): response time
+  (`response_seconds`, already computed in `roos_01.4`), message length (`n_chars`),
+  daily message counts, inter-message gaps, and word/emoji rank-frequency (a Zipf/
+  power-law candidate). Presented as options, not a recommendation — the student picks.
+
+- **Student's answers recorded** in the "Your turn" cell: response time, split
+  Roos/Louis × before/after Louis's move to NL (Nov 2024); predicted outcome (who's
+  faster, before vs. after) but no family committed yet; flagged the overnight-sleep
+  problem herself before being asked ("at night we sleep").
+- **Bug fixed in `roos_04.4-before-and-after.ipynb`, cell `In[12]` (id `e2ce92a5`)**:
+  `StopIteration` from `next(f for f in fits if ...)`. Root cause was upstream, in cell
+  `b63ba843`: `my_event = 2024-11-11` — missing quotes, so Python evaluated it as
+  `2024 - 11 - 11 = 2002` (an int) instead of a date string. `pd.Timestamp(2002, ...)`
+  then landed near the Unix epoch, so every message counted as "after" it, the "before"
+  bucket had 0 days, every discrete-family fit on an empty array failed, and `next()`
+  over an all-failed generator raised `StopIteration`. Fix: added the missing quotes
+  (`my_event = "2024-11-11"`). Verified by re-executing the full notebook — clean.
+- **Section 4.6.4 built in `roos_04.6-distribution.ipynb`**: `response_seconds`
+  (`ResponseTimeFeature`, reused unchanged from `roos_01.4`) × `MOVE_DATE` (reused from
+  `roos_02.5`, 2024-11-01) → four groups (Roos/Louis × before/after). **New assumption,
+  not yet confirmed by the student**: responses over `MAX_RESPONSE_MINUTES = 240` (4h)
+  are excluded as "asleep, not a slow reply" — more generous than 04.4's own 1-hour
+  cutoff for a bare message gap, since a real response can take longer than an hour
+  without being an overnight gap; 786 responses excluded on this run. Plotted as four
+  `ECDFPlot` curves on one axes (colour = person, linestyle = before/after) — no
+  distribution fitted yet, per the student's "first I want the first one" (ECDF over
+  fit+null). Sample sizes: Roos before n=7,361, after n=4,546; Louis before n=7,470,
+  after n=4,562. Re-executed clean via `jupyter nbconvert --execute --inplace`.
+
+### Still open
+
+- [ ] Student reads the four-ECDF chart in `roos_04.6-distribution.ipynb` against her
+      stated prediction (lower response time before the move for her, faster for Louis,
+      possible switch after).
+- [ ] Confirm or adjust `MAX_RESPONSE_MINUTES` (currently 4h, assistant's default).
+- [ ] Decide whether to move on to fitting a family + `NullDistribution` (the "second
+      one" from the assistant's original two-option question), once the ECDF has been
+      read.
+
+## Session 2026-09-22 (cont'd) — 4.6.5, hour-of-day before/after the move
+
+- **New hypothesis from the student**: before the move to NL, she and Louis exchanged a
+  long-distance "good morning" / "sleep well" ritual by text; she expects it to
+  disappear once they share an apartment. Explicitly framed as a known event with a
+  named prediction, not event- or pattern-discovery — confirmed with her that 03.3
+  (event-hunting) and 03.2 (autocorrelation/pattern-discovery) don't apply here.
+- **Three options presented** (greeting-word `RegexFeature`, hour-of-day distribution,
+  or both combined); **student picked hour-of-day** as the first build. Greeting-word
+  frequency and the combined (greeting-word-hours-only) version are still open, and are
+  the more direct test of the actual "we stop saying the words" claim — hour-of-day
+  alone only shows whether the day's *rhythm* changed, which could have other causes.
+- **Section 4.6.5 built**: hour extracted via `TimeFeatures`, night hours (00:00-04:59,
+  matching this log's existing "morning starts at 05:00" boundary) excluded, each
+  period's hours expressed as a **share of that period's own messages** (not raw
+  counts — same unequal-group-size caveat as the language-mix and response-time work).
+  Grouped `BarPlot` (x=hour, hue=period), grey-first: "before move" in
+  `settings.base_color`, "after move" (the change) in `settings.highlight_color`.
+  Re-executed clean via `jupyter nbconvert --execute --inplace`.
+
+- **Prediction recorded in the notebook** (written into 4.6.5, before the "what I found"
+  cell, not answered by the assistant): more messages in the evening before the move,
+  more messages during the day after the move.
+
+### Still open
+
+- [ ] Student reads the 4.6.5 chart against both recorded predictions — the good-
+      morning/sleep-well ritual (wake/bedtime bump) and the evening-vs-daytime shift —
+      and fills in "What I found."
+- [ ] Build the greeting-word `RegexFeature` category (EN/NL/FR) as the more direct test
+      of the good-morning/sleep-well claim, and/or the combined greeting-word-hours
+      version, if 4.6.5's chart doesn't settle it on its own.
+
+## Session 2026-09-22 (cont'd) — 4.6.6, message/burst length before vs. after Benji, and the graded-assignment check
+
+- **Checked `learn.pttrn.io` for the actual `distribution` theme requirements**
+  (courseId `60T1sfHrKYaeLJHUKwZR`): graded deliverable is **"Graded visualisation 3: a
+  distribution before and after"** (les4), due **2026-10-05 22:00**, not yet handed in,
+  all 5 criteria unchecked. Theme focus (quoted exactly, this is what "welke familie
+  past" means): *"Een verdeling is een uitspraak over het proces erachter: welke familie
+  past, en waarom hoort dat mechanisme bij jouw chat? Een histogram zonder die uitleg is
+  een plaatje, geen verhaal."* — a fitted family AND a stated generating mechanism are
+  both required, not just a shape. Also flagged: `verhaallijn`'s knockout example of a
+  *bad* story is literally "mensen slapen 's nachts" — the same reasoning used to justify
+  excluding night hours in 4.6.5; fine as a cleaning step, not usable as the finding
+  itself.
+- **New hypothesis from the student**: since Benji's birth (`BABY_DATE = 2025-05-11`,
+  a different split than `MOVE_DATE`), she sends longer messages *and* more bursts than
+  Louis, with a bigger gap after the baby than before. **Burst defined, her choice**:
+  consecutive same-author messages before the other replies (run-length on `author`),
+  one observation per burst, not per message.
+- **Section 4.6.6 built — first real fitting in this notebook** (steps 5-9 of
+  `goad_distribution_method`, not just shape-looking): `DistributionFitter` per
+  (author × baby_period) group, both variables, plus `ECDFPlot` overlays labelled with
+  the winning family and mean. All 8 fits succeeded, no `StopIteration` this time.
+  **Results**: message length — `lognorm` won all 4 groups (mean chars: Roos 62.0→56.7,
+  Louis 53.4→40.8; gap widened 8.6→15.9). Burst length — `nbinom` won 3 of 4 groups;
+  **Louis-after-baby came back `binomial` instead**, flagged in the notebook as needing
+  its own mechanism explanation rather than force-fitting the `nbinom` story (mean
+  bursts: Roos 2.73→3.13, Louis 2.30→2.06; gap widened 0.43→1.07). Both variables'
+  before/after gaps widened in the direction the student predicted — reported as numbers
+  only, not asserted as a confirmed finding; interpretation left to her.
+  Mechanism explanations drafted in the notebook (lognorm ~ product of factors, matching
+  04.2's taxi-fare argument; nbinom ~ a continuation rate that itself varies) but framed
+  conditionally ("if X wins, then..."), for the student to confirm or correct against
+  what actually won. Re-executed clean via `jupyter nbconvert --execute --inplace`.
+- **Not yet done, needed for the `spurious-correlations` rubric criterion**:
+  `NullDistribution` (04.4 §4.4.3) on the before/after gap for one or both variables, to
+  show the widened gap is more than shuffled-label noise — flagged in the notebook as
+  the next step before this goes in the report.
+
+### Still open
+
+- [ ] Student reads 4.6.6 against her hypothesis and fills in "What I found," including
+      the mechanism explanation for whichever family actually won (especially the
+      Louis-after-baby `binomial` exception).
+- [ ] Build `NullDistribution` check(s) for message length and/or burst length, before
+      vs. after Benji — required for a strong `spurious-correlations` score.
+- [ ] Decide which of this notebook's charts (response time, hour-of-day, message/burst
+      length) becomes the actual graded submission for "Graded visualisation 3", due
+      2026-10-05 — likely message length or burst length, since those are the ones with
+      an actual family fit + mechanism behind them so far.
+- [ ] Write the `reflectie-tekst` accompanying text for whichever chart is chosen,
+      explicitly naming preattentive processing / text integration / storyline /
+      spurious-correlations per the rubric's own wording.
+
+## Session 2026-09-22 (cont'd) — 4.6.7, NullDistribution significance checks
+
+- **Student asked for `NullDistribution` checks on all four charts built so far**
+  (response time, hour-of-day, message length, burst length), plus asked to have the
+  method explained — flagged she's "not yet an expert in deciphering these charts" and
+  wants to understand the story before going further.
+- **Statistic design, same shape for the three author-split variables**: a
+  difference-in-differences / "gap of gaps" — `(Roos−Louis) after − (Roos−Louis) before`
+  — rather than a plain before/after mean difference, since the student's hypotheses are
+  about the *gap between people* changing, not just one variable moving. Label shuffled:
+  `period`/`baby_period` (the before/after split), not `author`. Hour-of-day has no
+  author split, so its check is simpler: evening share (hours 18:00-23:59, rounded from
+  the 17:30 boundary), after minus before.
+- **Results** (2,000 shuffles each, seed=4):
+  - Response time gap-of-gaps: observed +0.27 min, **p=0.734 — not distinguishable from
+    chance.** The "there might be a switch" hypothesis does not survive this check as
+    stated (a gap-of-gaps test); doesn't rule out a plainer before/after shift for either
+    person alone, which wasn't what was tested.
+  - Evening-share shift: observed −0.265 (26.5 percentage points less evening after the
+    move), **p=0.001 — solid.**
+  - Message-length gap-of-gaps: observed +8.09 chars, **p=0.001 — solid.**
+  - Burst-length gap-of-gaps: observed +0.63 messages/burst, **p=0.001 — solid.**
+  - p=0.001 is the floor 2,000 shuffles can resolve (2/2001) for all three — reported as
+    "p < 0.001", not treated as an exact number.
+  Re-executed clean via `jupyter nbconvert --execute --inplace`.
+- **Not yet interpreted with the student** — numbers reported factually in chat, "What I
+  found" cell left blank in the notebook, same convention as every other prediction cell.
+
+### Still open
+
+- [ ] Student reads 4.6.7 against her hypotheses and fills in "What I found" — in
+      particular, that the response-time "switch" hypothesis did not survive the
+      gap-of-gaps check, while message length, burst length and evening share all did.
+- [ ] Given the above, message length or burst length (both p=0.001, both with a fitted
+      family already) are the strongest candidates for "Graded visualisation 3."
+
+## Session 2026-09-22 (cont'd) — found the actual goal 4.17 exercise text; corrected `roos_04.4`
+
+- **Checked the exact exercise description for "Graded visualisation 3" via
+  `learn.pttrn.io`** (`get_course`, goal `4.17`), since the student asked how to improve
+  the earlier work to match requirements. Exact text: *"de eigen chat splitsen op een
+  bekend event (uit 03.3), berichten per dag en gaps binnen bursts aan beide kanten
+  fitten, en het resultaat opschrijven als zin met parameters erin"* — split on a known
+  event **from 03.3 specifically**, and fit **messages per day** and **gaps within
+  bursts** (not message length or burst-message-count, which is what had been built in
+  `roos_04.6` so far — those are good practice but don't match this specific ask).
+  Also found: an earlier **draft deadline 2026-09-27** (before the final 2026-10-05
+  one), and a linked reading (Barabási, *The origin of bursts and heavy tails in human
+  dynamics*) recommended specifically as "the model of what your 'gaps within bursts'
+  plot is showing" — useful for the required mechanism sentence.
+  **Bug found**: `roos_04.4`'s `my_event` was `"2024-11-11"` (the NL move) — not
+  actually one of 03.3's two named events (`"Positive pregnancy test"` 2024-09-01,
+  `"Benji is born"` 2025-05-11), so it didn't satisfy "a known event from 03.3" as
+  written.
+- **Student chose "Benji is born"** (2025-05-11), matching the event the rest of her
+  lesson-4 work (`roos_04.6`) is already built around. Fixed `my_event` in `roos_04.4`
+  and re-executed the whole notebook clean.
+- **Results, the two required variables, both already had working fit cells in
+  `roos_04.4` §4.4.4** — needed only the corrected event:
+  - **Messages per day**: before, `nbinom` mean 73.6 sd 74.1 (638 days); after, `nbinom`
+    mean 33.9 sd 34.4 (486 days). `NullDistribution` on the mean difference: observed
+    −39.8, p≈0.001 — solid, not shuffle-noise.
+  - **Gaps within bursts** (exponential, gaps <1h): before, mean 223s (43,958 gaps);
+    after, mean 376s (14,634 gaps). No `NullDistribution` check run on this one yet.
+
+### Still open
+
+- [ ] Write the required "one sentence with parameters" for both fits (goal 4.17) —
+      draft given to the student in chat, hers to finalize in her own words.
+- [ ] Run a `NullDistribution` check on the gaps-within-bursts scale shift (223s→376s),
+      to match the "fit of distribution parameters where meaningful" the
+      spurious-correlations row asks for on *both* required variables, not just one.
+- [ ] Read the Barabási reading before writing the mechanism sentence for "gaps within
+      bursts" — it's specifically about why this variable is heavy-tailed rather than a
+      steady rate.
+- [ ] Decide whether `roos_04.6`'s existing work (response time, hour-of-day, message
+      length, burst-message-count) becomes supporting/exploratory material in the report,
+      given `roos_04.4`'s messages-per-day + gaps-within-bursts fits are what goal 4.17
+      actually asks for.
+- [ ] Draft due 2026-09-27, final 2026-10-05 — both approaching.
+
+## Session 2026-09-22 (cont'd) — burst-length deep dive, `roos_04.6`
+
+- **Bug found and fixed, independent of the assistant's edits**: `roos_04.4`'s
+  `my_event` had been changed to `"2025-11-05"` (day/month swapped from the intended
+  `"2025-05-11"`), most likely from the notebook being open and re-saved in VS Code —
+  exactly the sync risk flagged earlier this session. Student confirmed it was a
+  mistake; fixed back to `"2025-05-11"` and re-executed clean, numbers match what was
+  reported.
+- **Documented the burst computation itself** (`roos_04.6`, new markdown after the
+  burst-building cell): sort by timestamp, mark author-changes, `.cumsum()` into
+  `run_id`, `.groupby(run_id)` collapses each run to one row with `burst_length` = run
+  size. Includes a worked 8-message toy example.
+- **New section 4.6.8**: two-panel small-multiples comparison (one panel per author,
+  `sharex`/`sharey`), each panel overlaying the already-fitted before/after `pmf` curves
+  (no raw histogram bars — reduces clutter, the fit was already verified in 4.6.6).
+  Built specifically because the four-line ECDF was hard for the student to read;
+  isolates the two comparisons (person, period) into panels instead of one shared axis.
+- **Title, student's own choice**: "Mom takes the lead". Alternatives she proposed
+  ("Mom tries to dominate", "Mom overexplains") were flagged in chat, not the notebook,
+  as carrying an editorial judgement the burst-count data alone doesn't establish (more
+  bursts could mean many things besides dominating a conversation) — her call to make,
+  noted for the `verhaallijn`/tone discussion if it comes up at grading.
+  Re-executed clean via `jupyter nbconvert --execute --inplace`.
+
+### Still open
+
+- [ ] Student picks a final title from the options discussed (or her own), with the
+      tone trade-off in mind for live grading.
+- [ ] Everything else from the previous entries still stands (NullDistribution on
+      gaps-within-bursts, Barabási reading, reflectie-tekst, draft due 2026-09-27).
+
+## Session 2026-09-22 (cont'd) — the actual finding is direction, not magnitude
+
+- **Student corrected the framing**: the before/after difference in burst length isn't
+  big in absolute terms for either person — the real finding is that Roos's and Louis's
+  changes point in *opposite directions* (hers up, his down), which neither the ECDF
+  (4.6.6) nor the side-by-side panels (4.6.8) actually put on the page directly.
+- **New `DistributionDiffPlot` class added to `scripts/plots.py`**: draws a
+  precomputed `(x, diff)` line with the area shaded to zero — takes the difference
+  between two fitted densities/masses at the same x, rather than drawing the two
+  distributions themselves. Same idea as 03.1's `SubtractBaseline` residual-over-time
+  move, applied to two fitted distributions instead of two time windows.
+- **New section 4.6.9**: one `after.pmf(x) − before.pmf(x)` line per person (Roos,
+  Louis) on one shared axis with a `HorizontalLine` at zero, x-range set from the 99th
+  percentile of every fitted distribution so neither curve gets cut off. Title kept as
+  "Mom takes the lead" (student's choice, unchanged from the previous session).
+  Re-executed clean via `jupyter nbconvert --execute --inplace`.
+
+### Still open
+
+- [ ] Student reads 4.6.9 against her own framing (opposite directions, not magnitude)
+      and confirms it reads the way she intended.
+
+## Session 2026-09-23 — nausea/fatigue vs. the pregnancy window, and a real bug hunt
+
+- **New section 4.6.10**: nausea, fatigue, and both combined, each as a weekly count
+  split "during pregnancy" vs. "the rest of the chat" (`PREGNANCY_START` to
+  `BABY_DATE`, same window as `roos_03.3`), fitted with `DistributionFitter` and drawn
+  with the same `DistributionDiffPlot` from 4.6.9 — reused, not rebuilt, per the
+  student's "use the classes from the folder script" instruction. Nausea additionally
+  got a `BarPlot` comparison chart (student asked for "a comparison and distribution"
+  for that one specifically).
+- **Bug found and fixed, twice**: `weekly_in_out`'s reindex step silently zeroed out
+  every real count.
+  1. First cause: `pd.date_range(min, max, freq="W")` built off the raw (time-of-day-
+     carrying) timestamps never lines up with `resample("W")`'s midnight-Sunday bins —
+     fixed by deriving the full week range from `resample` itself instead of
+     reconstructing it by hand.
+  2. That fix alone wasn't enough: `reset_index()` names the resulting column after
+     the Series' own index name (`"timestamp_naive"`, inherited from upstream), not
+     the generic `"index"` — so `.rename(columns={"index": "week"})` was a silent
+     no-op, and `weekly["week"]` should have raised `KeyError` every time. Fixed with
+     `.rename_axis("week")` before `reset_index()`, which names the column directly
+     regardless of what it was called before.
+  - **Process note, for next time**: the `KeyError` above did not show up in two
+    consecutive background-executed verification passes — grepping the notebook
+    immediately after a "completed" background-task notification returned stale,
+    pre-edit output both times, and only running `jupyter nbconvert --execute` in the
+    foreground (blocking, no `run_in_background`) surfaced the real error. Prefer
+    synchronous execution when verifying a fix, especially after a result looked
+    suspicious (uniform `mean 0.00 sd 0.00` across three unrelated categories was the
+    tell).
+- **Results, after the real fix** (weekly counts, `nbinom` throughout):
+  - Nausea: outside pregnancy mean 0.03/week (sd 0.19); during, mean 0.81/week
+    (sd 1.21) — roughly a 27x jump, n=120 weeks outside vs. 42 during.
+  - Fatigue: outside mean 3.36/week (sd 3.00); during mean 4.31/week (sd 4.78) — a
+    real but much smaller relative increase, consistent with "fatigue" being a far
+    more generic word than "nausea" (already flagged in an earlier session).
+  - Combined (either): outside mean 3.39/week (sd 3.02); during mean 5.05/week
+    (sd 5.53).
+  Re-executed clean via `jupyter nbconvert --execute --inplace` (foreground).
+
+### Still open
+
+- [ ] Student reads all three 4.6.10 charts — nausea should show the pregnancy window
+      standing out sharply, fatigue more mildly, combined in between.
+
+## Session 2026-09-28 — from notebook to a runnable pipeline (coding-grade prep)
+
+- **New `scripts/chat_pipeline.py`**: load -> one goad `Pipeline` -> aggregate -> plot ->
+  save, for the two final figures only ("Child vs. climbing: a trade in the
+  conversation" and "Praat Nederlands met mij"). Run with
+  `uv run python scripts/chat_pipeline.py`; writes `img/final_child_vs_climbing.png` and
+  `img/final_praat_nederlands_met_mij.png`. Output checked against the notebook versions
+  (same 47/7/46 → 10/22/68 language split).
+- **Louis merge is now a pipeline step (`CanonicalAuthor`)**, first in the pipeline.
+  Changed from the notebook's substring rule (`"louis" in name`) to an explicit alias
+  map in `config.toml` under `[author_aliases]` (gitignored, so no names in git):
+  `~Louis Chessé` and `Louis Ancien` → `Louis`. 18,386 messages merged; authors now
+  `['Louis', 'Roos']`.
+- Only `child` and `climbing` regexes moved to the script; the other six categories stay
+  in 01.4.
+- Setup verified: lefthook 2.1.12 installed and wired into `.git/hooks/pre-commit`;
+  `.lefthook.yml` has **7** commands, not 5 (format, check, ty, clean-jupyter,
+  notebooktester, lychee, pipeline-drift).
+
+### Still open
+
+- [ ] Student draws the flowchart of `chat_pipeline.py` and can explain each "what
+      could break" point herself.
+- [ ] Decide whether 01.4 should import `CanonicalAuthor` from the script instead of
+      its own `canonical_author` function (two versions of one rule otherwise).
