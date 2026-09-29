@@ -17,10 +17,12 @@ never learns that streamlit exists.
 from __future__ import annotations
 
 import matplotlib.dates as mdates
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from goad_toolkit.visualizer import BasePlot
 from matplotlib.lines import Line2D
+from scipy import stats
 
 
 class BarPlot(BasePlot):
@@ -193,6 +195,157 @@ class DistributionDiffPlot(BasePlot):
         self.ax.plot(x, diff, color=color, marker="o", label=label, **kwargs)
         if fill:
             self.ax.fill_between(x, diff, 0, color=color, alpha=0.15)
+        return self.fig, self.ax
+
+
+class RidgelinePlot(BasePlot):
+    """One density curve per group, stacked vertically and allowed to overlap, so many
+    groups' *shapes* share one x-axis without a tangle of overlaid lines.
+
+    Each ridge is a KDE scaled to the same peak height -- the ridges compare shape and
+    position, not group size, so a 1,000-message group and a 6,000-message one draw
+    equally tall. Say the n's somewhere else (the labels are a good place).
+
+    `log_scale=True` fits the KDE on log10 of the values and draws it on a log x-axis,
+    which is what a long right tail (message length, response time) needs -- on a
+    linear axis everything piles up against zero. A small tick marks each group's
+    median, so "shifted right" reads as a number, not just an impression.
+
+    Colour follows 02.2's grey-first rule: every ridge is `settings.base_color` unless
+    it's in `highlight_groups`, which gets `settings.highlight_color`.
+
+        RidgelinePlot(settings).plot(data=frame, x="n_chars", group="category",
+                                     order=[...], highlight_groups=["planning_logistics"])
+    """
+
+    def build(
+        self,
+        data: pd.DataFrame,
+        x: str,
+        group: str,
+        order: list[str],
+        highlight_groups: list[str] | None = None,
+        labels: dict[str, str] | None = None,
+        log_scale: bool = True,
+        overlap: float = 1.6,
+        bw_adjust: float = 1.0,
+        n_grid: int = 400,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        highlight_groups = highlight_groups or []
+        labels = labels or {}
+
+        transform = np.log10 if log_scale else (lambda v: v)
+        values_all = transform(data[x].to_numpy(dtype=float))
+        grid = np.linspace(values_all.min(), values_all.max(), n_grid)
+        grid_x = 10**grid if log_scale else grid
+
+        # First group on top: its baseline sits highest, each next one a step lower.
+        for i, name in enumerate(order):
+            baseline = len(order) - 1 - i
+            values = transform(data.loc[data[group] == name, x].to_numpy(dtype=float))
+            # set bandwidth when create the KDE to avoid ty error unsupported operator
+            # kde.factor in scipy's type hints are loose
+            # they allow bytes, memoryview, as numbers
+            kde = stats.gaussian_kde(
+                values, bw_method=lambda k: k.scotts_factor() * bw_adjust
+            )
+            density = kde(grid)
+            height = density / density.max() * overlap
+            color = (
+                self.settings.highlight_color
+                if name in highlight_groups
+                else self.settings.base_color
+            )
+            # zorder: lower ridges drawn over the ones above, so each outline stays
+            # visible where they overlap.
+            z = 2 * i
+            self.ax.fill_between(
+                grid_x, baseline, baseline + height, color=color, zorder=z
+            )
+            self.ax.plot(
+                grid_x, baseline + height, color="dimgray", linewidth=0.8, zorder=z + 1
+            )
+            self.ax.axhline(baseline, color="dimgray", linewidth=0.5, zorder=z + 1)
+
+            median = np.median(values)
+            median_height = kde(median)[0] / density.max() * overlap
+            median_x = 10**median if log_scale else median
+            self.ax.plot(
+                [median_x, median_x],
+                [baseline, baseline + median_height],
+                color="black",
+                linewidth=1.2,
+                zorder=z + 1,
+            )
+
+        if log_scale:
+            self.ax.set_xscale("log")
+        self.ax.set_xlim(grid_x.min(), grid_x.max())
+        self.ax.set_yticks(range(len(order) - 1, -1, -1))
+        self.ax.set_yticklabels([labels.get(name, name) for name in order])
+        self.ax.set_ylim(-0.1, len(order) - 1 + overlap + 0.3)
+        self.ax.spines[["top", "right", "left"]].set_visible(False)
+        self.ax.tick_params(axis="y", length=0)
+        return self.fig, self.ax
+
+
+class ViolinPlot(BasePlot):  #
+    """Horizontal violins, one per group: a mirrored density with the quartiles drawn
+    inside, so shape *and* summary (median, IQR) sit in the same mark.
+
+    Same colour rule and log-scale reasoning as `RidgelinePlot` above. `cut=0` stops
+    the density at the observed min/max rather than inventing values beyond them --
+    a message can't be shorter than one character. `density_norm="width"` gives every
+    violin the same maximum width, again comparing shape rather than group size.
+    """
+
+    def build(
+        self,
+        data: pd.DataFrame,
+        x: str,
+        group: str,
+        order: list[str],
+        highlight_groups: list[str] | None = None,
+        labels: dict[str, str] | None = None,
+        log_scale: bool = True,
+        **kwargs,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        highlight_groups = highlight_groups or []
+        labels = labels or {}
+        kwargs.setdefault(
+            "palette",
+            {
+                name: self.settings.highlight_color
+                if name in highlight_groups
+                else self.settings.base_color
+                for name in order
+            },
+        )
+        kwargs.setdefault("inner", "quart")
+        kwargs.setdefault("cut", 0)
+        kwargs.setdefault("density_norm", "width")
+        sns.violinplot(
+            data=data,
+            x=x,
+            y=group,
+            hue=group,
+            order=order,
+            hue_order=order,
+            log_scale=log_scale,
+            legend=False,
+            ax=self.ax,
+            **kwargs,
+        )
+        self.ax.set_yticks(
+            range(len(order)), [labels.get(name, name) for name in order]
+        )
+        # seaborn writes the column name onto the axis; the settings get the last word.
+        if self.settings.ylabel is not None:
+            self.ax.set_ylabel(self.settings.ylabel)
         return self.fig, self.ax
 
 

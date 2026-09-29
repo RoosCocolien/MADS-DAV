@@ -798,3 +798,32 @@ exercise), targeting the teacher's feedback on `roos_01.4`'s categories submissi
       could break" point herself.
 - [ ] Decide whether 01.4 should import `CanonicalAuthor` from the script instead of
       its own `canonical_author` function (two versions of one rule otherwise).
+
+## Session 2026-09-28 (cont'd) — message length per topic: ridgeline + violin, `roos_04.6` §4.6.11
+
+- **Hypothesis (Roos):** `planning_logistics` messages are longer than those of the other
+  categories.
+- **New classes in `scripts/plots.py`:** `RidgelinePlot` (KDE per group on log10 values,
+  equal peak heights, median tick) and `ViolinPlot` (seaborn violin, `cut=0`,
+  `density_norm="width"`, quartiles inside). Both grey-first via `highlight_groups=`.
+  The param is deliberately *not* called `highlight`: that's a `PlotSettings` field, and
+  `BasePlot.plot()` swallows any kwarg named after a settings field (found the hard
+  way, planning_logistics rendered grey on the first run).
+- **Categories:** the seven 01.4 topics (love, financial, child, climbing, running, food,
+  planning_logistics), patterns copied unchanged. `food` is *commented out* in 01.4 with
+  no logged reason; re-enabled here on request. `be_careful` left out.
+- **Choices made by Claude, flagged in the notebook for Roos to accept or overrule:**
+  multi-topic messages count in every topic they match (~13% of categorised messages);
+  an `all messages` grey reference row; log x-axis; rows sorted by median.
+- Medians printed (chars): food 108, financial 97, climbing 83, child 76, running 67,
+  planning_logistics 66, love 24, all messages 32. Interpretation left to Roos.
+
+### Still open
+
+- [ ] Roos writes "What I found" under 4.6.11 against her prediction.
+- [ ] Decide on the keyword-length confound (longer messages have more chances to match
+      *any* regex, so every topic sits above `all messages`). Possible check: length
+      matched against the number of regex hits, or a per-word-count baseline.
+- [ ] Decide whether `food` stays (and log why it was commented out in 01.4).
+- [ ] If the claim goes in the report: a `NullDistribution` shuffle of the topic label,
+      same as 4.6.7.
