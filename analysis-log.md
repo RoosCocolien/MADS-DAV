@@ -827,3 +827,25 @@ exercise), targeting the teacher's feedback on `roos_01.4`'s categories submissi
 - [ ] Decide whether `food` stays (and log why it was commented out in 01.4).
 - [ ] If the claim goes in the report: a `NullDistribution` shuffle of the topic label,
       same as 4.6.7.
+
+## Session 2026-09-29 — pre-commit hook failure on `RidgelinePlot` (`ty`)
+
+- **Symptom:** commit blocked by lefthook. The only failing check was `ty` at
+  `scripts/plots.py`: `kde.set_bandwidth(kde.factor * bw_adjust)` → "Unsupported `*`
+  operation". scipy's type hints give `kde.factor` a loose union (incl. `bytes`,
+  `memoryview`), so `ty` can't prove the multiply is safe. Runtime was never wrong.
+- **Fix (Roos):** set the bandwidth at construction instead,
+  `stats.gaussian_kde(values, bw_method=lambda k: k.scotts_factor() * bw_adjust)`.
+  Same result (`factor` defaults to Scott's factor), one line instead of two. Chosen over
+  a `# ty: ignore`, which would hide the check rather than clarify the code.
+- **Workflow gotcha:** after the edit the hook still failed and the file seemed to
+  "revert". It was unstaged (`MM` in `git status`): lefthook checks the *staged* version
+  and hides unstaged edits while it runs. Fix: `git add` the file, then commit.
+- Committed as `19c4f42` + `865ab3a` (removed a stray `#` after `class ViolinPlot`).
+
+### Still open
+
+- [ ] `notebooktester` reported 9 failed / 4 timed out notebooks but doesn't block the
+      commit (exit 0). Check whether `roos_04.6-distribution.ipynb` is among the
+      failures; `07.1-social_graphs` fails on a string `timestamp` column in the own-chat
+      loader.
