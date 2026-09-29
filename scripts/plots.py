@@ -291,7 +291,7 @@ class RidgelinePlot(BasePlot):
         return self.fig, self.ax
 
 
-class ViolinPlot(BasePlot):  #
+class ViolinPlot(BasePlot):
     """Horizontal violins, one per group: a mirrored density with the quartiles drawn
     inside, so shape *and* summary (median, IQR) sit in the same mark.
 
