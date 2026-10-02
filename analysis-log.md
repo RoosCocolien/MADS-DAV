@@ -885,6 +885,15 @@ answered a check question in her own words. Her answers, with the corrections th
       would look ordinary for both authors together but unusual for one of them?
 - [ ] §4.3.5 your-turn (pooled vs. per author on own chat), which overlaps with the
       per-author tip for 4.6.11.
-- [ ] Side trip: §4.4.4 of `roos_04.4` was explained by mistake. Its step 1 (write down
-      the expected effect of Benji's birth *before* running) is still to do. Note there
-      that "before" mixes the dating and living-together phases.
+- [ ] §4.4.4 of `roos_04.4`: step 1 (write down the expected effect of the event
+      *before* running) is still to do.
+
+### §4.4.4 event changed: Benji's birth → positive pregnancy test
+
+- Roos edited the teacher's `04.4` directly and set `my_event = "2024-08-29"`
+  (positive pregnancy test). That cell was copied into `roos_04.4`, replacing
+  `2025-05-11` (Benji's birth), and `04.4` was restored with `git checkout`. The outputs
+  from her run were not copied, so `roos_04.4` needs a re-run.
+- [ ] Log *why* this event was chosen over Benji's birth. Note that "before" now covers
+      only the dating period (before moving in, Nov 2024), but "after" mixes pregnancy,
+      moving in and Benji.
