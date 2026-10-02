@@ -849,3 +849,42 @@ exercise), targeting the teacher's feedback on `roos_01.4`'s categories submissi
       commit (exit 0). Check whether `roos_04.6-distribution.ipynb` is among the
       failures; `07.1-social_graphs` fails on a string `timestamp` column in the own-chat
       loader.
+
+## Session 2026-10-02 — reading `roos_04.3-penguins` (§4.3.1–§4.3.4), explained in Dutch
+
+No code changed; a reading/coaching session. Claude explained each section, then Roos
+answered a check question in her own words. Her answers, with the corrections they needed:
+
+- **§4.3.1 (pooled fit fails):** "all families rejected *and* the two winners disagree" is
+  more informative than "only `norm` rejected". It points at the grouping, not the family.
+  Correction taken on board: the fit only *signals* the problem. *Which* groups to split
+  by comes from the dataset or domain knowledge, not from the number of humps (two humps,
+  three species: Adelie and Chinstrap merge into one).
+- **§4.3.2 (per species):** ~100 birds per species can't tell normal / Weibull /
+  skew-normal apart. "Pick the family the mechanism predicts" was unclear. Explained as:
+  each family comes with a story about how the numbers are generated (sum → normal,
+  product → lognormal, …). When the data doesn't choose between families, keep the one you
+  can defend.
+- **If `norm` were clearly rejected per species (Roos):** the grouping might still be
+  wrong, e.g. split Gentoo by sex. Added: the other option is that the mechanism story
+  itself is wrong.
+- **§4.3.3 (Gentoo by sex):** why the fit couldn't see that mixture. Roos said it was the
+  amount of data, and that the sexes are closer together than the species are. The second
+  part is the key, made more precise: what counts is the distance *relative to the spread*
+  (< ~2 sd merges into one bell). More data does not create a trough, so data volume is at
+  most a side factor.
+- **§4.3.4 (outliers relative to which population):** explained. Check question still
+  unanswered (see below).
+
+### Still open
+
+- [ ] Roos writes her own answers under §4.3.1 and as reflection question 2 in
+      `roos_04.3`.
+- [ ] Answer the §4.3.4 check: why is a *missed* outlier (the 202 mm Adelie female, ordinary
+      when pooled) worse than an *exaggerated* one? And which message or day in the chat
+      would look ordinary for both authors together but unusual for one of them?
+- [ ] §4.3.5 your-turn (pooled vs. per author on own chat), which overlaps with the
+      per-author tip for 4.6.11.
+- [ ] Side trip: §4.4.4 of `roos_04.4` was explained by mistake. Its step 1 (write down
+      the expected effect of Benji's birth *before* running) is still to do. Note there
+      that "before" mixes the dating and living-together phases.
