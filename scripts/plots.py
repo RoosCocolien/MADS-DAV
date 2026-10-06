@@ -349,6 +349,191 @@ class ViolinPlot(BasePlot):
         return self.fig, self.ax
 
 
+class BeforeAfterDensityPlot(BasePlot):
+    """Two samples as overlaid density histograms on identical bins, each with its fitted
+    curve drawn over it in the same colour, and a direct label instead of a legend.
+
+    The point is that bars and curve are on the *same* density scale, so a reader can see
+    where the fit misses:
+
+    - `log_x=False`: bar height = share of observations per unit of x (`density=True`).
+      For a count, pass the pmf as `density`; with integer-width bins that is the same
+      scale.
+    - `log_x=True`: `bins` are log-spaced edges in the original unit. Bar height = share
+      of observations per unit of log10(x), and the curve is converted to that scale too
+      (`f(x) * x * ln 10`), so a lognormal draws as a bell and the bars line up with it.
+
+        BeforeAfterDensityPlot(settings).plot(
+            samples={"before": a, "after": b}, bins=edges, colors=SIDE_COLORS,
+            densities={"before": fit_a.pdf, "after": fit_b.pdf},
+            labels={"before": "before: μ = 97", "after": "after: μ = 103"},
+            label_positions={"before": (0.62, 0.85), "after": (0.62, 0.72)},
+        )
+
+    `densities` and the label text are computed in the notebook; this class only draws.
+    `label_positions` are in axes fractions (0-1), so they land in the same place
+    whatever the data's scale.
+    """
+
+    def build(
+        self,
+        samples: dict[str, np.ndarray],
+        bins: np.ndarray,
+        colors: dict[str, str],
+        densities: dict | None = None,
+        labels: dict[str, str] | None = None,
+        label_positions: dict[str, tuple[float, float]] | None = None,
+        log_x: bool = False,
+        discrete: bool = False,
+        alpha: float = 0.25,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        densities = densities or {}
+        labels = labels or {}
+        label_positions = label_positions or {}
+        edges = np.asarray(bins, dtype=float)
+
+        for name, values in samples.items():
+            values = np.asarray(values, dtype=float)
+            color = colors[name]
+            if log_x:
+                heights, _ = np.histogram(
+                    np.log10(values), bins=np.log10(edges), density=True
+                )
+            else:
+                heights, _ = np.histogram(values, bins=edges, density=True)
+            if discrete and not log_x:
+                # One bar per bin, with gaps: two neighbouring counts with the same height
+                # must not merge into what looks like one wide bin.
+                centers, widths = (edges[:-1] + edges[1:]) / 2, np.diff(edges)
+                self.ax.bar(
+                    centers,
+                    heights,
+                    width=widths * 0.85,
+                    color=color,
+                    alpha=alpha + 0.15,
+                    edgecolor=color,
+                    linewidth=1,
+                )
+            else:
+                self.ax.stairs(heights, edges, fill=True, color=color, alpha=alpha)
+                self.ax.stairs(heights, edges, color=color, linewidth=1)
+
+            density = densities.get(name)
+            if density is not None:
+                if log_x:
+                    grid = np.geomspace(edges[0], edges[-1], 400)
+                    curve = density(grid) * grid * np.log(10)
+                elif discrete:
+                    grid = np.arange(np.ceil(edges[0]), np.floor(edges[-1]) + 1)
+                    curve = density(grid)
+                else:
+                    grid = np.linspace(edges[0], edges[-1], 400)
+                    curve = density(grid)
+                self.ax.plot(grid, curve, color=color, linewidth=2.5)
+
+            if name in labels:
+                x, y = label_positions.get(name, (0.98, 0.9))
+                self.ax.text(
+                    x,
+                    y,
+                    labels[name],
+                    transform=self.ax.transAxes,
+                    color=color,
+                    fontsize=10,
+                    fontweight="bold",
+                    ha="left",
+                    va="top",
+                )
+
+        if log_x:
+            self.ax.set_xscale("log")
+        self.ax.set_xlim(edges[0], edges[-1])
+        self.ax.spines[["top", "right"]].set_visible(False)
+        return self.fig, self.ax
+
+
+class DotStripPlot(BasePlot):
+    """One dot per observation, one column per group, with a short line at each group's
+    summary value: every single week stays visible, which matters when a group is small
+    (10 weeks) and a box or a mean would hide how many of them actually stand out.
+
+    Grey-first (02.2): every group is `settings.base_color` unless it's in
+    `highlight_groups`. `summaries` maps group -> value for the line, `summary_labels`
+    group -> the text written next to it, so the number sits on the chart, not in a legend.
+
+        DotStripPlot(settings).plot(data=weekly, x="group", y="share", order=[...],
+                                    highlight_groups=["hard weeks"],
+                                    summaries={"hard weeks": 22.6}, summary_labels={...})
+    """
+
+    def build(
+        self,
+        data: pd.DataFrame,
+        x: str,
+        y: str,
+        order: list[str],
+        highlight_groups: list[str] | None = None,
+        summaries: dict[str, float] | None = None,
+        summary_labels: dict[str, str] | None = None,
+        tick_labels: dict[str, str] | None = None,
+        jitter: float = 0.18,
+        seed: int = 0,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        highlight_groups = highlight_groups or []
+        summaries = summaries or {}
+        summary_labels = summary_labels or {}
+        tick_labels = tick_labels or {}
+        rng = np.random.default_rng(seed)
+
+        for i, group in enumerate(order):
+            color = (
+                self.settings.highlight_color
+                if group in highlight_groups
+                else self.settings.base_color
+            )
+            values = data.loc[data[x] == group, y].to_numpy(dtype=float)
+            offsets = rng.uniform(-jitter, jitter, len(values))
+            self.ax.scatter(
+                i + offsets,
+                values,
+                color=color,
+                s=40,
+                alpha=0.8,
+                edgecolor="white",
+                linewidth=0.5,
+                zorder=2,
+            )
+            if group in summaries:
+                self.ax.hlines(
+                    summaries[group],
+                    i - 0.32,
+                    i + 0.32,
+                    color="black",
+                    linewidth=2.5,
+                    zorder=3,
+                )
+            if group in summary_labels:
+                self.ax.text(
+                    i + 0.36,
+                    summaries.get(group, 0),
+                    summary_labels[group],
+                    va="center",
+                    ha="left",
+                    fontsize=9.5,
+                    fontweight="bold",
+                    color="black" if group not in highlight_groups else color,
+                )
+
+        self.ax.set_xticks(range(len(order)), [tick_labels.get(g, g) for g in order])
+        self.ax.set_xlim(-0.6, len(order) - 0.1)
+        self.ax.spines[["top", "right"]].set_visible(False)
+        return self.fig, self.ax
+
+
 class EventMarker(BasePlot):
     """A quiet vertical line at one date, with an arrow and a label pointing at it.
 

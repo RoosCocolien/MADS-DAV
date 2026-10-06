@@ -897,3 +897,126 @@ answered a check question in her own words. Her answers, with the corrections th
 - [ ] Log *why* this event was chosen over Benji's birth. Note that "before" now covers
       only the dating period (before moving in, Nov 2024), but "after" mixes pregnancy,
       moving in and Benji.
+
+## Session 2026-10-02 (cont'd) — reading `roos_04.5-fitting-the-residual`, explained in Dutch
+
+No code changed. Claude explained the notebook's core ideas in Dutch: fit a model, subtract
+it, and fit a distribution to the residual to decide whether the model is done (noise →
+stop; structure over time → missing mechanism, and *when* it starts is the finding). Covered
+the COVID example (line on pre-vaccination window: residual is noise, six families tie;
+full window: residual has a shape, every family rejected, points at vaccination) and §4.5.5
+(outliers via tail probability under the fitted family, not the z-score rule: 0 vs. 2 days
+flagged).
+
+### Still open
+
+- [ ] Roos answers the check question from this session in her own words.
+- [ ] Reflection question 4 of `roos_04.5` links to the graded assignment: flag unusual
+      days in `roos_04.4`'s messages-per-day fit (after the re-run with the new event) and
+      explain them from her own knowledge of the chat.
+
+## Session 2026-10-02 (cont'd) — Graded visualisation 3 built: `roos_04.6` §4.6.12
+
+Built from Roos's own detailed brief (event, windows, families, keyword lists, plots,
+robustness checks all specified by her). Event = positive test **2024-08-29**, 77 days each
+side (13 Jun – 28 Aug / 29 Aug – 13 Nov 2024, both long-distance).
+
+- **Followed the notebooks over the brief where they conflicted:** burst threshold 60 min
+  (from `roos_04.4`), not 30; event date from `roos_04.4`. **Unresolved:** `roos_03.3` puts
+  the positive test on 2024-09-01, and the assignment asks for "an event from 03.3".
+- **Keyword lists:** the brief's new, stricter FR/NL/EN lists (accent-stripped, word
+  boundaries), not §4.6.10's patterns (which match "crevettes").
+- **Found:** goad's `DistributionFitter` fits `nbinom` through `scipy.stats.fit`, which treats
+  r as an integer (r came back 1.00 / 2.00). Count fits now done by direct MLE in the notebook.
+- **New `BeforeAfterDensityPlot` in `scripts/plots.py`**: overlaid density histograms on
+  identical bins, fitted curve per side, direct labels; log-x mode converts curves to
+  density per log10 so bars and curves match. Figures saved to `figures/vis3_*.png/svg`.
+- **Results:** messages/day NB μ 85.2 → 95.5, r 1.38 → 2.02 (Poisson ΔAIC ≈ 2,400); shuffle
+  p = 0.25. Gaps: truncated lognormal best of three on both sides (e^μ 39 s, σ 1.88 → 1.80),
+  exponential ΔAIC ≈ 10,000; power-law tail α 1.10 / 1.21 above ~2 min, tied with lognormal
+  on the tail. Fatigue-or-nausea 0.52 → 2.01 messages/day (nausea 0 → 0.45), p ≈ 0.001.
+- **Weakens the story:** the daily-volume result is window-sensitive (μ +58% at 4 weeks,
+  +37% at 8, +12% at 11; p ≈ 0.009 / 0.008 / 0.25), driven by very quiet weeks ending 14 and
+  21 Aug 2024. Gap tempo is robust across 15/30/60-min thresholds (median change ≤ 5%).
+- **Reference values reproduced** at 30 min (e^μ 33 s, σ 1.71/1.64) and for symptom rates;
+  messages/day μ is ~10% below the earlier parse (85/96 vs 97/103), cause unknown.
+
+### Still open
+
+- [ ] Roos: were we together in mid-August 2024? Decides how to explain the quiet weeks.
+- [ ] Align the event date between `roos_03.3` (2024-09-01) and `roos_04.4`/§4.6.12 (2024-08-29).
+- [ ] Fifth rubric criterion (from the course page), then the reflectie-tekst.
+- [ ] Before submitting: clear the keyword-snippet cell's output, and cell 3's `own.head()`
+      output (shows full message texts).
+- **Answered (Roos, 2026-10-02):** event date 2024-08-29 verified in her data (so `roos_03.3`'s
+  2024-09-01 marker is the one that's off). We were together mid-August 2024, which explains
+  the quiet weeks. Messages per day matters less to her than gaps and content.
+- **Fifth rubric criterion: not findable in the repo.** `checklist.md` and
+  `references/leerdoelen/les4.md` hold no rubric; only teacher-feedback slugs appear in the log
+  (`preattentive-gestalt`, `verhaallijn`, `spurious-correlations`; `reflectie-tekst` likewise
+  written as a slug). The `learn` server timed out this session. Roos to check the course page.
+
+## Session 2026-10-02 (cont'd) — §4.6.12 revised, new §4.6.13 "the hard weeks"
+
+- **§4.6.12 revised** with Roos's answers: event date 2024-08-29 verified (`roos_03.3`'s
+  2024-09-01 marker is the one to fix; it is the start of pregnancy week 5); messages per day
+  relabelled a required side layer; the mid-August dip explained as a visit (together, chat
+  quiet); result sentence updated to say so.
+- **New §4.6.13**, Roos's focus, story "How to prepare for a next pregnancy". Hard weeks =
+  pregnancy weeks 5–14 (`PREGNANCY_START` + 5 to + 15 weeks = 1 Sep – 9 Nov 2024, 70 days),
+  03.3's week convention. Baseline = long-distance chat before the test (383 days; includes
+  pregnancy weeks 0–4, flagged as conservative). Rates per 1,000 messages.
+- **Results:** nausea-or-fatigue 8.2 → 22.6 per 1,000 (×2.7, shuffle p ≈ 0.001); nausea 0.06 →
+  5.17 per 1,000, almost only in the hard weeks. Weekly: normal weeks NB μ 4.9, r 5.26
+  (ΔAIC ≈ 10 over Poisson); 6 of 10 hard weeks beyond the 99th percentile (14); worst week 12
+  (30 messages); edges (weeks 5, 14) mildest. Later periods 7.3 / 10.0 per 1,000 (lower bounds:
+  in person). Chat busier during hard weeks (96.6 vs 83.9 messages/day).
+- Figures: `figures/trimester_timeline`, `trimester_standout`, `trimester_periods`.
+  `BeforeAfterDensityPlot` now draws separate bars for discrete data.
+
+### Still open
+
+- [ ] `MOVE_DATE` in the notebook is 2024-11-01, but Roos remembers mid-November. If the real
+      date is later, the hard weeks were fully long-distance. Confirm and correct.
+- [ ] Roos writes "My lessons for a next pregnancy" at the end of §4.6.13.
+- [ ] Fifth rubric criterion, then the reflectie-tekst.
+
+## Session 2026-10-02 (cont'd) — choosing the hand-in chart; testing it
+
+- **Before/during/after dot chart** added to §4.6.13, after the stand-out chart
+  (`DotStripPlot`, new in `scripts/plots.py`; `figures/trimester_before_during_after`). One dot
+  per week, per 1,000 messages: before 8.2 (54 weeks), hard weeks 22.6 (10), weeks 15–40 until
+  Benji 7.3 (26); shuffle p ≈ 0.001 for both comparisons. Only 6 of 54 before and 1 of 26 after
+  are above the mildest hard week. The "after" column is a lower bound (living together).
+  "After" = rest of the pregnancy, Claude's reading of "the period after"; after-Benji
+  (10.0 per 1,000) could be added as a fourth column.
+- **Chart types discussed:** the dot chart is a jittered strip plot. It shows the spread of the
+  weeks but fits no family, so it is a comparison chart, not a distribution chart in the
+  lesson-4 sense. The stand-out chart is one (fitted NB + tail probabilities).
+- **Roos's decision: hand in the stand-out chart** ("6 of the 10 hard weeks…") for feedback and
+  improve it from there. Caveat discussed: it doesn't follow goal 4.17's wording literally
+  (messages per day and gaps within bursts, fitted on both sides). Those fits are in §4.6.12
+  (Step 1, Step 2, parameter table, result sentence); point the grader there in the
+  submission text.
+- **Stand-out chart updated:** title "How to survive a pregnancy: prepare and plan.", subtitle
+  "6 of the 10 hard weeks would be a 1-in-100 week in normal times". μ and r explained on the
+  chart: μ = the average symptom messages per normal week (4.9); r = how much that weekly
+  rate wanders (5.26; smaller r = more variation, r → ∞ = Poisson). The NB is explained as a
+  gamma-Poisson mixture: each week its own rate, messages at random moments within it.
+- **Tests added before the chart** (new cell):
+  1. Parametric bootstrap: the NB fits the 54 normal weeks (simulated samples show a gap
+     this large in 65% of cases).
+  2. 0 of 54 normal weeks are above the 99% line (14); the family expects 0.4.
+  3. P(≥ 6 of 10 normal weeks beyond the line) = 3.4e-11, assuming independent weeks (an
+     order of magnitude, since neighbouring weeks are not fully independent).
+  4. NB on the 10 hard weeks: μ 15.3 (90% range 12.5–18.5), but r from 7.1 to unbounded and
+     ΔAIC 1.2 against Poisson.
+- **Roos's footnote checked and sharpened:** "no family fitted to the 10 hard weeks, too little
+  data" is correct for the *shape*, not the *average*. The footnote now reads: "No family
+  fitted to the 10 hard weeks: too few to tell a negative binomial from a Poisson. Their
+  average is clear: 15.3 a week (90% range 12.5-18.5)."
+
+### Still open
+
+- [ ] Cosmetic: the grey label on the stand-out chart touches the dotted 99% line.
+- [ ] Submission text: name §4.6.12 as where goal 4.17's required fits and sentence are.
