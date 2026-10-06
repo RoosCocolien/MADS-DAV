@@ -119,8 +119,43 @@ def praat_nederlands_bars(lang: pd.DataFrame) -> Figure:
 # --- time series -------------------------------------------------------------------
 
 
-def baby_is_taking_over(weekly: pd.DataFrame, colors: dict[str, str]) -> Figure:
-    """Weekly share of messages per topic, with the test and the birth marked."""
+def p_text(n_reaching: int, p: float) -> str:
+    """'p ≤ 0.0001' when no shuffle reached the real value (p is then only a bound)."""
+    return f"p ≤ {p:.4f}" if n_reaching == 0 else f"p ≈ {p:.4f}"
+
+
+def balance_text(stats: dict) -> str:
+    """The shuffle test and the time-order check, as two sentences under the chart."""
+    sport = stats["sport"]
+    before, after = 100 * stats["mean_gap_before"], 100 * stats["mean_gap_after"]
+    first = (
+        f"Child minus {sport}, in percentage points of weekly messages: {before:+.1f} "
+        f"before the positive test, {after:+.1f} after ({stats['n_before']} and "
+        f"{stats['n_after']} weeks; the week of the test left out).\nShuffling the "
+        f"before/after label over all weeks ({stats['n_shuffle']:,} times) produced "
+        f"a shift this large {stats['n_shuffles_reaching_shift']} times "
+        f"({p_text(stats['n_shuffles_reaching_shift'], stats['p_value_greater'])})."
+    )
+    if stats["n_runs"] == 0:
+        second = (
+            f"Too few weeks before the test for a run of {stats['run_weeks']} "
+            "consecutive weeks: no time-order check."
+        )
+    else:
+        second = (
+            f"Keeping the order of time: {stats['n_runs_reaching_after']} of the "
+            f"{stats['n_runs']} runs of {stats['run_weeks']} consecutive weeks before "
+            f"the test reached the after-test average (highest run "
+            f"{100 * stats['max_run_gap']:+.1f})."
+        )
+    return f"{first}\n{second}"
+
+
+def baby_is_taking_over(
+    weekly: pd.DataFrame, colors: dict[str, str], balance: dict
+) -> Figure:
+    """Weekly share of messages per topic, with the test and the birth marked, and the
+    statistical test of child vs. sport (computed in aggregate.py) underneath."""
     trend = Pipeline()
     for topic in colors:
         trend.add(RollingAvg, column=topic, window=settings.SMOOTH_WEEKS, rename=True)
@@ -157,6 +192,7 @@ def baby_is_taking_over(weekly: pd.DataFrame, colors: dict[str, str]) -> Figure:
         fontsize=9,
         color="dimgray",
     )
+    fig.text(0.5, -0.12, balance_text(balance), ha="center", va="top", **FOOTNOTE)
     return fig
 
 
@@ -235,12 +271,13 @@ def run(paths: Paths) -> None:
     lang = pd.read_parquet(paths.language_share)
     weekly = pd.read_parquet(paths.weekly_topics)
     stats = json.loads(paths.symptom_stats.read_text())
+    balance = json.loads(paths.topic_stats.read_text())
 
     save(praat_nederlands_panels(lang), "1_praat_nederlands_panels", paths)
     save(praat_nederlands_bars(lang), "2_praat_nederlands_bars", paths)
-    climbing = {"child": settings.CHILD_BLUE, "climbing": settings.SPORT_ORANGE}
-    save(baby_is_taking_over(weekly, climbing), "3_baby_taking_over_climbing", paths)
-    sports = {"child": settings.CHILD_BLUE, "sports": settings.SPORT_ORANGE}
-    save(baby_is_taking_over(weekly, sports), "4_baby_taking_over_sports", paths)
+    for i, sport in [(3, "climbing"), (4, "sports")]:
+        colors = {"child": settings.CHILD_BLUE, sport: settings.SPORT_ORANGE}
+        fig = baby_is_taking_over(weekly, colors, balance[sport])
+        save(fig, f"{i}_baby_taking_over_{sport}", paths)
     save(prepare_and_plan(stats), "5_prepare_and_plan", paths)
     logger.success(f"figures: 5 figures -> {paths.figures}")

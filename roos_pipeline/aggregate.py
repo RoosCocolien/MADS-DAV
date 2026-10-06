@@ -3,6 +3,8 @@
     2_features.parquet
       -> language_share        % per language per move period  -> 3_language_share.parquet
       -> weekly_topics         topic share per calendar week    -> 3_weekly_topics.parquet
+           -> topic_balance_stats   child minus sport, before vs after the test:
+                                    shuffle test + runs of 10 weeks -> 3_topic_stats.json
       -> weekly_symptoms       symptom messages per pregnancy week
                                                                 -> 3_weekly_symptoms.parquet
            -> symptom_stats    negative binomial fits + shuffle test
@@ -10,7 +12,7 @@
 
 Everything after this stage works on a few hundred rows instead of 63,000 messages,
 and the slowest step of the whole pipeline (10,000 shuffles) runs here, once. The
-figures stage only reads these four small files, so a title can change without
+figures stage only reads these five small files, so a title can change without
 re-running any of it.
 """
 
@@ -72,6 +74,79 @@ def weekly_topics(features: pd.DataFrame) -> pd.DataFrame:
         .rename_axis("week")
         .reset_index()
     )
+
+
+BEFORE_TEST, AFTER_TEST = "before test", "after test"
+
+
+def mean_shift(frame: pd.DataFrame) -> float:
+    """Weekly gap (child share minus sport share): after-test average minus before."""
+    means = frame.groupby("period")["gap"].mean()
+    return means[AFTER_TEST] - means[BEFORE_TEST]
+
+
+def topic_balance_stats(
+    weekly: pd.DataFrame,
+    sport: str,
+    n_shuffle: int = settings.N_SHUFFLE,
+    run_weeks: int = settings.RUN_WEEKS,
+) -> dict:
+    """Did the balance between child and sport tip at the positive test, beyond chance?
+
+    One number per week: child's share minus `sport`'s share of that week's messages
+    (Roos's choice, 2026-10-06: one test on the gap, "the balance tipped", rather than
+    two separate tests). Weeks before the test against weeks from the test on; the one
+    week that contains the test is left out, because it is half of each.
+
+    Two checks, the same pair as roos_04.6d:
+
+    1. **Shuffle** the before/after label over all weeks (`NullDistribution`): how
+       often does a random split produce a shift this large? This treats weeks as
+       interchangeable, which neighbouring weeks are not quite.
+    2. **Keep the order of time:** every run of `run_weeks` consecutive weeks before
+       the test. Did the time before ever produce a stretch with a gap as high as the
+       after-test average, on its own?
+
+    `resample("W")` labels each week by its last day (a Sunday), so a week starts six
+    days before its label.
+    """
+    week_end = weekly["week"]
+    week_start = week_end - pd.Timedelta(days=6)
+    frame = pd.DataFrame(
+        {
+            "gap": weekly["child"] - weekly[sport],
+            "period": np.select(
+                [week_end < settings.TEST_DATE, week_start >= settings.TEST_DATE],
+                [BEFORE_TEST, AFTER_TEST],
+                default="",
+            ),
+        }
+    )
+    frame = frame[(frame["period"] != "") & frame["gap"].notna()]
+    before = frame.loc[frame["period"] == BEFORE_TEST, "gap"]
+    after = frame.loc[frame["period"] == AFTER_TEST, "gap"]
+
+    null = NullDistribution(mean_shift, n_iter=n_shuffle, seed=settings.SEED).run(
+        frame, label="period"
+    )
+    # Rolling over the before-weeks in calendar order; with fewer weeks than one run
+    # there is no run at all, and the result says so instead of inventing one.
+    runs = before.reset_index(drop=True).rolling(run_weeks).mean().dropna()
+    return {
+        "sport": sport,
+        "n_before": len(before),
+        "n_after": len(after),
+        "mean_gap_before": float(before.mean()),
+        "mean_gap_after": float(after.mean()),
+        "shift_observed": float(null.observed),
+        "n_shuffle": n_shuffle,
+        "n_shuffles_reaching_shift": int((null.null >= null.observed).sum()),
+        "p_value_greater": float(null.p_value("greater")),
+        "run_weeks": run_weeks,
+        "n_runs": len(runs),
+        "max_run_gap": float(runs.max()) if len(runs) else None,
+        "n_runs_reaching_after": int((runs >= after.mean()).sum()),
+    }
 
 
 # --- How to survive a pregnancy: prepare and plan ----------------------------------
@@ -210,11 +285,24 @@ def symptom_stats(weekly: pd.DataFrame, n_shuffle: int = settings.N_SHUFFLE) -> 
 
 
 def run(paths: Paths, n_shuffle: int = settings.N_SHUFFLE) -> None:
-    """Read 2_features.parquet, write the four small stage-3 files."""
+    """Read 2_features.parquet, write the five small stage-3 files."""
     features = pd.read_parquet(paths.features)
 
     language_share(features).to_parquet(paths.language_share)
-    weekly_topics(features).to_parquet(paths.weekly_topics)
+    topics = weekly_topics(features)
+    topics.to_parquet(paths.weekly_topics)
+    balance = {
+        sport: topic_balance_stats(topics, sport, n_shuffle=n_shuffle)
+        for sport in ["climbing", "sports"]
+    }
+    paths.topic_stats.write_text(json.dumps(balance, indent=2))
+    for sport, b in balance.items():
+        logger.info(
+            f"aggregate: child minus {sport}, {b['mean_gap_before']:+.3f} -> "
+            f"{b['mean_gap_after']:+.3f}, shuffle p <= {b['p_value_greater']:.4f}, "
+            f"{b['n_runs_reaching_after']} of {b['n_runs']} runs reach it"
+        )
+
     weekly = weekly_symptoms(features)
     weekly.to_parquet(paths.weekly_symptoms)
 

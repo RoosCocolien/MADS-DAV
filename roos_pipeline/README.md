@@ -15,6 +15,11 @@ uv run pytest tests/roos_pipeline                # the tests (no real chat neede
 | 2 | Praat Nederlands met mij (one axes) | `roos_02.5`, code cell 5 | `figures/pipeline/2_praat_nederlands_bars` |
 | 3 | Baby is taking over (climbing) | `roos_03.3`, code cell 6 | `figures/pipeline/3_baby_taking_over_climbing` |
 | 4 | Baby is taking over (sports) | `roos_03.3`, code cell 7 | `figures/pipeline/4_baby_taking_over_sports` |
+
+Figures 3 and 4 carry a statistical test underneath: the weekly gap *child share − sport
+share*, before vs. after the positive test (the test week itself left out), checked with a
+shuffle of the before/after label (10,000×) and, keeping the order of time, against every
+run of 10 consecutive weeks before the test. Same two checks as figure 5.
 | 5 | How to survive a pregnancy: prepare and plan | `roos_04.6d`, code cell 11 | `figures/pipeline/5_prepare_and_plan` |
 
 ## The flowchart
@@ -39,7 +44,7 @@ flowchart LR
     subgraph S3["3 · aggregate — grain changes"]
         direction TB
         a1["language_share<br/>% per period"]
-        a2["weekly_topics<br/>share per week"]
+        a2["weekly_topics<br/>share per week"] --> a5["child − sport, before/after test<br/>shuffle + 10-week runs"]
         a3["daily → PregnancyWeek<br/>→ weekly_symptoms"] --> a4["fit 2 × negative binomial<br/>+ 10,000 shuffles"]
     end
 
@@ -58,17 +63,19 @@ flowchart LR
     S2 --> f[("2_features")] --> S3
     a1 --> t1[("3_language_share")]
     a2 --> t2[("3_weekly_topics")]
+    a5 --> t4[("3_topic_stats.json")]
     a4 --> t3[("3_symptom_stats.json")]
     t1 --> g1 & g2
     t2 --> g3 & g4
+    t4 --> g3 & g4
     t3 --> g5
 
     classDef goad fill:#e8e8e8,stroke:#7f7f7f,color:#000
     classDef mine fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
     class p3,f3,f4 goad
-    class p1,p2,f1,f2,a1,a2,a3,a4,g1,g2,g3,g4,g5 mine
-    class raw,m,f,t1,t2,t3 file
+    class p1,p2,f1,f2,a1,a2,a3,a4,a5,g1,g2,g3,g4,g5 mine
+    class raw,m,f,t1,t2,t3,t4 file
 ```
 
 Grey = a goad_toolkit class used as-is (`RegexFeature`, `SortValues` inside the boxes
@@ -83,7 +90,7 @@ Every arrow between two stages is a file. That is the whole design.
 |---|---|---|---|
 | prepare → features | nothing about the content: names and timestamps are fixed *once* | every feature step would have to repeat the alias/timezone handling, and a forgotten alias would split Louis in two in some figures only | yes, from `1_messages` |
 | features → aggregate | **the grain**: one row per message becomes one row per period or week | a new topic or language rule would force re-running the shuffle test, and per-message columns could no longer be checked (`2_features` is the file to open when a regex looks wrong) | yes, from `2_features` |
-| aggregate → figures | statistics become pictures | changing a title or a colour would re-run 10,000 shuffles and the fits; the figures stage reads four small files and runs in a second | yes, from the `3_*` files |
+| aggregate → figures | statistics become pictures | changing a title or a colour would re-run 3 × 10,000 shuffles and the fits; the figures stage reads five small files and runs in a second | yes, from the `3_*` files |
 
 The test `test_figures_stage_needs_only_the_stage_3_files` deletes stages 1 and 2's
 output and redraws anyway: that's the claim in the last column, checked.

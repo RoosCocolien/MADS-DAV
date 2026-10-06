@@ -97,6 +97,7 @@ SYMPTOM_PATTERNS: dict[str, str] = {
 
 SMOOTH_WEEKS = 4  # trailing rolling average in "Baby is taking over", as in roos_03.3
 N_SHUFFLE = 10_000
+RUN_WEEKS = 10  # time-order check: runs of this many consecutive weeks, as in 04.6d
 SEED = 7
 
 # --- colours (grey-first, 02.2; Okabe-Ito where a colour carries meaning) ----------
@@ -148,6 +149,10 @@ class Paths:
     @property
     def weekly_topics(self) -> Path:
         return self.processed / "3_weekly_topics.parquet"
+
+    @property
+    def topic_stats(self) -> Path:
+        return self.processed / "3_topic_stats.json"
 
     @property
     def weekly_symptoms(self) -> Path:
