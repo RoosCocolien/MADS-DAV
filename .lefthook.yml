@@ -22,6 +22,11 @@ pre-commit:
     notebooktester:
       glob: '*.ipynb'
       run: uv run notebooktester notebooks -v -t 150
+    # Roos's pipeline: run its tests only when the pipeline, its tests or the
+    # project's dependencies change, so commits on notebooks stay fast.
+    roos-pipeline-tests:
+      glob: '{roos_pipeline/*.py,tests/roos_pipeline/*.py,pyproject.toml,uv.lock}'
+      run: uv run pytest tests/roos_pipeline -q
     pipeline-drift:
       glob: '{scripts/pipelines.py,notebooks/lesson1/01-cleaning.ipynb}'
       run: uv run python tools/check_pipeline_drift.py

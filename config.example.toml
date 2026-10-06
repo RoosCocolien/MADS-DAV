@@ -7,6 +7,6 @@ datetime_format = "%d/%m/%Y, %H:%M:%S"
 drop_authors = []
 
 
-# display name in the export -> one canonical author (read by scripts/chat_pipeline.py)
+# display name in the export -> one canonical author (read by roos_pipeline/prepare.py)
 # e.g. "Louis Ancien" = "Louis"
 [author_aliases]

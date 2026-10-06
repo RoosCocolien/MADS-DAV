@@ -1020,3 +1020,147 @@ side (13 Jun – 28 Aug / 29 Aug – 13 Nov 2024, both long-distance).
 
 - [ ] Cosmetic: the grey label on the stand-out chart touches the dotted 99% line.
 - [ ] Submission text: name §4.6.12 as where goal 4.17's required fits and sentence are.
+
+## 2026-10-06: is the stand-out chart a distribution?
+
+- **Question (Roos):** the y-axis of `distribution_3_survive_pregnancy_prepare_plan.png` says
+  "share of normal weeks", not "probability". Is it a distribution?
+- **Answer:** yes. `BeforeAfterDensityPlot(..., discrete=True)` with one bin per count uses
+  `density=True`, so each grey bar is the share of the 54 normal weeks with exactly that count
+  (bars sum to 1), i.e. an empirical P(week = k); the line is the NB pmf on the same scale. The
+  crimson dots are *not* on that scale: their height is only stacking.
+- **Added in roos_04.6 (after the stand-out chart):** a second version with both groups as
+  probability distributions (grey = normal weeks + NB pmf, crimson = the 10 hard weeks, each
+  0.1), y-label "probability: share of weeks with exactly this many". Saved as
+  `figures/trimester_standout_pmf.png`. Checked: both sets of bars sum to 1.00.
+
+### Still open
+
+- [ ] Roos: decide which of the two versions goes in the report, and why.
+
+## 2026-10-06 (cont'd): roos_04.6 split into four notebooks
+
+`roos_04.6-distribution.ipynb` was too long (99 cells). Split into four notebooks. The
+§-numbers stay the same, and each notebook links to the other three:
+
+- `roos_04.6a-move-and-baby.ipynb`: §4.6.1–4.6.9 (response time, hour of day, length and
+  bursts, null check, opposite directions).
+- `roos_04.6b-symptoms-and-topics.ipynb`: §4.6.10–4.6.11.
+- `roos_04.6c-graded-vis3-positive-test.ipynb`: §4.6.12 (graded visualisation 3).
+- `roos_04.6d-hard-weeks.ipynb`: §4.6.13.
+
+Shared code is in `notebooks/lesson4/roos_046_shared.py`: `load_own()`, the four dates, `SIDE_COLORS`,
+`save()` and `local_chat()`, plus *copies* of `normalise`, `SYMPTOM_PATTERNS` and `fit_daily` for
+4.6d. Roos chose this so the explained versions stay visible in 4.6c. **Change both together.**
+Checked: the copies match 4.6c, each notebook runs on its own, and all 39 moved cells give
+the same output as the original.
+
+### Still open
+
+- [ ] Roos: delete the old `roos_04.6-distribution.ipynb` once she has checked the four new
+      ones. It is still in git history (commit 4b01da6).
+
+## 2026-10-06 (cont'd): is the hard-weeks difference real? (4.6d, after the stand-out chart)
+
+Added a label-shuffle check (`NullDistribution`, 10,000 shuffles over the 64 weeks) plus a
+visual, `figures/trimester_standout_shuffle.png`:
+
+1. Gap in averages: +10.4 symptom messages a week (bootstrap 95% range +6.9 to +14.2); 0 of
+   10,000 shuffles reach it, so p ≤ 0.0001.
+2. 6 of 10 beyond the 99% line: 0 of 10,000 shuffles; exact hypergeometric chance 2.8e-6.
+3. Order kept: the 45 runs of 10 consecutive normal weeks average 3.7–7.5, against 15.3 for the
+   hard weeks; 0 of 45 reach it (p ≤ 1/46).
+- Overlap: a random hard week beats a random normal week in 98% of pairs; 4 of 10 hard weeks
+  fall inside the normal range (8, 10, 11, 13).
+- Explained to Roos: p is *not* "the chance something is going on".
+
+### Still open
+
+- [ ] Roos: decide whether to model it as a rate (NB regression with log(messages) as offset, rate
+      ratio + CI) instead of / next to weekly counts. Not built; her call.
+
+## 2026-10-06 (cont'd): stand-out chart with both groups fitted (4.6d)
+
+New chart `figures/trimester_standout_both.png`, after the shuffle test: the stand-out chart's
+title, subtitle and labels, but both groups as probability distributions, each with a fitted
+negative binomial (normal μ 4.9, r 5.26; hard μ 15.3, r 16.1). The shuffle result is in the
+footnote. Second footnote: the hard-weeks curve is for comparison only (10 weeks, ΔAIC 1.2 against
+Poisson); the average is what is solid.
+
+### Still open
+
+- [ ] Roos: choose between `trimester_standout`, `_pmf` and `_both` for the report.
+- Subtitle of `trimester_standout_both` (Roos's choice, option 1 of 4): "In the hard weeks, nausea and
+  fatigue came up three times as often: 15 messages a week instead of 5". "Three times" is by weekly
+  counts (15.3 / 4.9); per 1,000 messages it is 2.7×. An assert in the cell guards the written-out
+  "three". Footnote now rounds to "about 1 in 360,000".
+- `trimester_standout_both` reworked (Roos's request): lines only (the two fitted NB pmfs, no bars),
+  the "54 normal long-distance weeks…" text block removed, short direct labels at the peaks. Below
+  the chart: which line is which (54 long-distance weeks, avg 4.9; 10 hard weeks = pregnancy weeks
+  5-14, avg 15.3) and the shuffle result, opening with "Too large to be a coincidence." The
+  "hard-weeks curve fitted for comparison only" footnote was dropped from the chart; that caveat
+  now lives only in the markdown cell above it.
+- `trimester_standout_both` trimmed further (Roos's request): 99% line and its text removed; crimson
+  label is now just "hard weeks" (the "6 of 10 beyond…" claim needed the line); footnote no longer says
+  "too large to be a coincidence" but "Chance alone does not explain this gap: …occurred 0 times
+  (p ≤ 0.0001)"; the "6 of 10 beyond the line by chance / no run of 10 weeks" line removed.
+
+## Session 2026-10-06 (cont'd) — `roos_pipeline/`: five figures as one goad pipeline (coding grade)
+
+**Goal (Roos):** the five graded visualisations rebuilt by one pipeline in a folder of her own:
+Praat Nederlands met mij (`roos_01.4` code cell 13 + `roos_02.5` code cell 5), Baby is taking over
+(`roos_03.3` code cells 6 + 7), How to survive a pregnancy: prepare and plan (`roos_04.6d`).
+Run: `uv run python -m roos_pipeline` (~13 s). Flowchart + explanations in `roos_pipeline/README.md`.
+
+**Decisions (Roos's, asked one by one):**
+- Folder `roos_pipeline/` (same `roos_` convention; *not* `dev/`, which is gitignored).
+- Her own code moves out of `scripts/`: `chat_pipeline.py` absorbed and removed (still in
+  `c3edc36`), her 7 plot classes moved to `roos_pipeline/plots.py` unchanged,
+  `scripts/plots.py` restored to the teacher's version. Six roos_ notebooks now import
+  them from `roos_pipeline.plots`; `roos_046_shared.py` imports dates, `normalise`,
+  `SYMPTOM_PATTERNS`, `fit_daily` from the pipeline (one copy, no drift).
+  `roos_04.6d` executed end to end afterwards: runs.
+- **One date per event** (the notebooks disagreed): positive test **2024-08-29** (not 03.3's
+  09-01), birth **2025-05-11** (not chat_pipeline's 05-01). All in `settings.py`.
+- Topic regexes: the **03.3 versions** (not 01.4's narrower ones).
+- Distribution figure: **`trimester_standout_both`** (closes the open choice of 2026-10-06).
+- pytest added (`uv add --dev pytest`, uv.lock updated) + lefthook command
+  `roos-pipeline-tests`, which runs only when `roos_pipeline/`, its tests, `pyproject.toml`
+  or `uv.lock` change. Roos asked what pytest adds over ruff/ty: ruff = style, ty = types,
+  pytest = *wrong numbers*; only looking catches a misleading chart.
+
+**Structure:** 4 stages, each boundary a file in `data/processed/roos/` (gitignored):
+prepare → `1_messages` → features (per message) → `2_features` → aggregate (grain changes;
+NB fits + 10,000 shuffles) → `3_*` → figures (draw only). Any stage reruns from the
+previous file (`--stage`, `--from`); a test deletes stages 1-2's output and redraws.
+
+**Real bugs caught, and by what:**
+- **Test → regex false positives (the main one).** Writing "surprise is not climbing" as a
+  test made it fail. On the real chat, 186 of 1,764 climbing messages counted *only* through
+  the 03.3 additions: surprise(d/s) 133, entreprise(s) 25, poffertjes 5. Child: `partou`
+  matched *partout* (23), `couches?` matched *coucher* (47) and *accouchement*. Roos chose:
+  `\bpof\b`, `\bprises?\b`, `partou\b`, `couches?\b` (accepting that *accouchement* no longer
+  counts). Counts after: child 2,274 → 2,163, climbing 1,764 → 1,605, sports 2,752 → 2,595.
+  Follow-up (Roos): `accouchements?` added to child as its own word, so childbirth still
+  counts; child 2,163 → 2,207. Test added.
+  Story of "Baby is taking over" unchanged by eye. The 03.3 notebook still has the old regex.
+- **Test → my own edit.** Applying that fix through a shell heredoc wrote backspace characters
+  instead of `\b`; two tests failed at once. Invisible by eye.
+- **ty → pandas typing.** `groupby(day).size().rename(...)`: stubs say Series *or* DataFrame.
+  Fixed with `day.value_counts()`, no `ty: ignore` (same choice as 2026-09-29).
+- **Looking → layout.** Figure 1 repeated the y-label on the right panel; no test could see it.
+  Fixed via `PlotSettings.subplot_ylabels`.
+- **Hook verified:** `lefthook run pre-commit --command roos-pipeline-tests` failed (🥊) while
+  the 4 regex tests failed, i.e. a commit would have been blocked. Now 33/33 pass.
+
+Numbers reproduced exactly before the regex fix: language 47/7/46 → 10/22/68; normal weeks
+μ 4.85, r 5.26; hard weeks μ 15.3, r 16.1; gap +10.4, 0 of 10,000 shuffles.
+
+### Still open
+
+- [ ] Roos: redraw/adjust the flowchart herself (README has a Mermaid draft) and explain each
+      boundary in her own words: what breaks if merged, what reruns alone.
+- [ ] Roos: commit (the hook runs the tests); `uv.lock` must be in the commit.
+- [ ] Update `roos_03.3`'s regex to the fixed version, or note there that it differs.
+- [ ] Figure 5's words "three times" are guarded: the pipeline stops if the ratio no longer
+      rounds to 3.
