@@ -1327,3 +1327,22 @@ stands out more (19 words). This version matches test 2, which also compares med
 
 ### Still open (Roos)
 - [ ] Pick mean or median for the final graph, and say why.
+
+## Session 2026-10-09 (cont'd 6) — question: do French-heavy weeks just have fewer messages?
+
+**Roos asked (NL):** could a week with ~30% French look short by chance because there is less talk that
+week, and does test 2 solve that?
+
+**Checked (64 long-distance weeks, Louis):** messages per week vs French share r = −0.25 (Spearman −0.10);
+messages per week vs words per message r = −0.07; French vs words r = −0.66, and −0.70 with the number of
+messages held fixed (partial r). Thirds by message count (few/middle/many): French 15/14/13%, words
+10.7/10.0/10.7, no pattern. But the 4 most French weeks are all quiet: 26% (205 msgs), 29% (126), 30%
+(101), 33% (35 msgs, 3.4 words), three of them in Aug 2024. Small weeks give extreme shares more easily.
+
+**Explained:** test 2 does remove the number of messages (both groups share the same week); it does not
+make the right end of the curve less thin. Options offered, not done: dot size = messages per week,
+weighted fit, say it in the footnote, MIN_MESSAGES higher as a check.
+
+### Still open (Roos)
+- [ ] Why were the August 2024 weeks quiet and French? (together on holiday? her own knowledge)
+- [ ] Decide whether the plot shows the number of messages per week (dot size).
