@@ -36,6 +36,9 @@ LAST_NORMAL_WEEK = 3  # weeks < 4; week 4 holds the test and is left out
 
 LANGUAGES = ["en", "nl", "fr"]
 MIN_CHARS = 3  # shorter messages ("Ok", one emoji) are no evidence of a language
+# A reply that quotes an earlier message carries its "[18-12-2025, 09:42:27] Roos: ..."
+# line, so the quoted words count as the sender's (found in roos_05.6, 2026-10-09).
+QUOTED_REPLY_PATTERN = r"\[\d{1,2}-\d{1,2}-\d{4}, "
 
 # --- topics: the roos_03.3 versions (chosen 2026-10-06 over the narrower 01.4 ones) --
 # Three word boundaries added on 2026-10-06, after a test caught false matches on the real
@@ -107,6 +110,10 @@ LIGHT_GREY = "#C8C8C8"
 CRIMSON = "crimson"  # goad's PlotSettings().highlight_color
 CHILD_BLUE = "#0072B2"
 SPORT_ORANGE = "#D55E00"
+# roos_05.6, French vs. message length: Okabe-Ito orange and blue (Roos's pick, 2026-10-09)
+LONG_DISTANCE_ORANGE = "#E69F00"
+TOGETHER_BLUE = "#0072B2"
+DARK_GREY = "#333333"  # a fitted line over coloured dots
 
 PERIOD_ORDER = ["before move", "after move"]
 PERIOD_LABELS_NL = {

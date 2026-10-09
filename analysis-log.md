@@ -1164,3 +1164,135 @@ Numbers reproduced exactly before the regex fix: language 47/7/46 → 10/22/68; 
 - [ ] Update `roos_03.3`'s regex to the fixed version, or note there that it differs.
 - [ ] Figure 5's words "three times" are guarded: the pipeline stops if the ratio no longer
       rounds to 3.
+
+## Session 2026-10-06 (cont'd) — statistical test under "Baby is taking over" (pipeline)
+
+**Roos's choices (asked):** one test on the **gap** (child share − sport share per week, "the
+balance tipped") rather than two separate tests; periods **before vs. after the positive test**
+(pregnancy + after birth together as "after"; the week containing the test left out, it is half
+of each); **shuffle + runs of 10 consecutive weeks**, same pair as 04.6d; figures stay in
+`figures/pipeline/`.
+
+**Where it lives:** calculated in the aggregate stage (`topic_balance_stats` →
+`3_topic_stats.json`), only written under the chart in `figures.py`, so "figures only draw"
+still holds. `RUN_WEEKS = 10` in `settings.py`.
+
+**Results (real chat):**
+- Child − climbing: −4.0 percentage points before the test, +6.8 after (55 and 106 weeks).
+  0 of 10,000 shuffles reach the shift (p ≤ 0.0001); 0 of 46 runs of 10 weeks before the test
+  reach the after-average (highest run −2.4).
+- Child − sports: −5.6 → +5.5; 0 of 10,000 shuffles; 0 of 46 runs (highest −4.1).
+- Caveat to say out loud: "after" lumps the pregnancy and life with Benji together, and it also
+  starts close to the move (Nov 2024). The test says the balance tipped around the test, not
+  *why*.
+
+Tests: 36 pass (new: the test week is left out; fewer than 10 weeks before means no run check,
+and the text says so).
+
+## Session 2026-10-09 — draft graded vis "relationships": French vs. message length (roos_05.6)
+
+**Roos's question:** does Louis write shorter messages when he writes in French, his mother
+tongue? Asked for: a new notebook `notebooks/lesson5/roos_05.6-your-turn.ipynb` with two
+scatterplots, x = share of messages in French that week, y = words per message, each with a line
+through the dots: (1) the whole chat, (2) long distance + long distance pregnant only.
+
+**How it is built (Claude, on Roos's request):** reads `2_features.parquet` (pipeline stage 2,
+already has `language`). goad as-is: `Filter` (Louis), `RegexFeature` (`\S+` count → `n_words`),
+`MapValues` (fr → 1, en/nl → 0, "unknown" → NaN so the French share is over classified messages
+only); weekly `resample("W")` like `weekly_topics`; `RegPlot` with `ci=None` for scatter + line.
+Periods from `settings.TEST_DATE` / `MOVE_DATE`; the week holding the test or the move gets no
+period (as in `topic_balance_stats`). **No new class was needed**, so nothing was added to
+`scripts/` or `roos_pipeline/`.
+
+**First numbers (draft, not yet Roos's reading):**
+- whole chat, 162 weeks: r = −0.43
+- long distance (55 weeks) + long distance pregnant (8 weeks): r = −0.66
+- mean French share / words per message: long distance 13% / 10.7, pregnant 18% / 9.1,
+  living together 56% / 7.2.
+
+**Found on the way:** seaborn's `regplot` writes the column names over `PlotSettings`'
+axis labels; fixed with `ax.set(...)` after plotting. 2,396 of Louis's messages contain a quoted
+reply (`[date, time] Roos: ...`), which counts quoted words as his.
+
+### Still open (Roos)
+- [ ] Write "What I see" in her own words.
+- [ ] Mean vs. median words per message (long tail, lesson 4).
+- [ ] `MIN_MESSAGES = 10` drops no week at present: keep as a guard or remove.
+- [ ] Short "unknown" messages: out of the French share, in words per message. Defend or change.
+- [ ] Quoted replies: strip the quote, or drop those messages?
+- [ ] Straight line or `lowess=True`?
+- [ ] Confounder (05.2): the whole-chat line mixes French with "living together". The
+      long-distance plot is one check; colouring dots by period is another.
+
+## Session 2026-10-09 (cont'd) — roos_05.6: colours, line options, captions, test options
+
+**Roos asked for:** graph 1 dots in two groups, orange = long distance, blue = living together;
+options for the line in graph 2 (she thinks a straight line is not the best); a caption under
+the graphs with the number of messages and the % English/Dutch/French; options for a
+statistical test of "Louis writes less French while apart, and more words in other languages".
+
+**Done (Claude):**
+- Week label `living`: long distance (week ends before the move) / living together (starts after)
+  / the one move week (light grey). The test week now counts as long distance, so graph 2 has
+  64 weeks (was 63); r stays −0.66. Colours in `settings.py`: `LONG_DISTANCE_ORANGE` #E69F00,
+  `TOGETHER_BLUE` #0072B2 (Okabe-Ito), `DARK_GREY` for the line. Pipeline tests still pass.
+- Graph 1: `ScatterPlot` (hue) + `RegPlot(scatter=False)` layered with `plot_on_axes`, one line.
+- Captions (`language_caption`): whole chat 27,993 messages, 58% en / 14% nl / 28% fr (of 27,513
+  classified, 480 "unknown"); long distance 17,938 messages, 80% en / 7% nl / 13% fr.
+- Graph 2 takes `LINE_FIT` (still `{}` = straight). New §5.6.5: the same weeks with four lines
+  (straight, log x, parabola, lowess) + a table of what each claims. Not chosen: Roos's call.
+- Test options written in the notebook (none run): (1) per message, Mann-Whitney / shuffle of
+  the language label; (2) within each week, French minus other median words, Wilcoxon / sign
+  flip; (3) per week, Spearman / shuffle + runs; (4) negative binomial regression with period,
+  hour, topic, quoted reply; (5) chi-square language × living for part 1.
+
+### Still open (Roos)
+- [ ] Choose the line (set `LINE_FIT`) and say why that shape, also next to graph 1 (up to 85%).
+- [ ] Choose a test, and write down *before* running it what difference would count.
+- [ ] The earlier open items from this morning (mean/median, quoted replies, unknown, MIN_MESSAGES).
+
+## Session 2026-10-09 (cont'd 2) — roos_05.6: what a dot is, median instead of mean
+
+**Roos asked:** an explanation of what one dot is in "Long distance only", and the same plot with
+the median instead of the mean.
+
+**Done (Claude):** markdown "What is one dot?" + an example week (26 Feb – 3 Mar 2024: 378
+messages, 377 with a language, 55 French → x = 15%; 3,928 words / 378 → mean 10.4, median 8).
+New §5.6.4b: the same 64 weeks with the weekly median (`median_words`), same `LINE_FIT`.
+
+**Numbers:** r −0.66 (mean) vs −0.60 (median); middle week 9.5 vs 6.5 words; medians fall on
+whole numbers (rows). The outlier week at ~21% French stays high with the median (19 words), so it
+is not one long message: worth opening that week.
+
+**Point to keep in mind (said to Roos):** a dot mixes his French, English and Dutch messages of
+one week; the line is about *weeks*, not about whether his French messages themselves are shorter.
+
+### Still open (Roos)
+- [ ] Mean or median: pick one and say why (in her own words) — what does she want a week's
+      "typical" message to mean?
+- [ ] Open the outlier week (~21% French, median 19 words).
+
+## Session 2026-10-09 (cont'd 3) — roos_05.6: test 2 run, final graph
+
+**Roos's choices (her own reasons):** test 2, *within each week*, because it tests the mechanism behind
+the scatter (the slope comes from the mix: French messages shorter than English/Dutch), removes the biggest
+confounder by design, and is simple to explain (one difference per week, one question: below 0?).
+Line: log of x, words = a + b · log(share). Title: "Familiar language needs fewer words" (Claude changed
+less → fewer). Mean words per message on y (the median question was left open; Claude kept the mean).
+
+**Test 2 result:** 63 of 64 long-distance weeks have ≥5 messages in both groups (MIN_PER_GROUP = 5);
+French minus English+Dutch median words: **below 0 in 63 of 63 weeks**, median −4 (range −12 to −1).
+Wilcoxon signed-rank one-sided p = 2.2e-12; sign test p = 1.1e-19.
+Robustness (Claude added): without quoted replies 62/63 below 0 (−4); only messages ≥4 words 53/59 (−2.5);
+both 54/56 (−2.75). The gap shrinks without the shortest messages (detector least reliable there) but holds.
+`QUOTED_REPLY_PATTERN` added to settings.py.
+
+**Final graph (§5.6.7):** log-x fit: words = 0.9 − 4.53 · ln(share), i.e. 3.1 fewer words per doubling of
+French share. x ticks every 5%, no decimals. Footnote: what a dot is, 17,938 messages (80% en / 7% nl /
+13% fr), and the test line (guarded: the cell stops if the test no longer supports it).
+
+### Still open (Roos)
+- [ ] Pick a title + subtitle (options given in chat); "familiar" is a *why* the test does not show.
+- [ ] Mean vs. median on y, and say why.
+- [ ] Be able to explain test 2 and the log line in her own words.
+- [ ] Save the final figure (not yet saved to figures/).
