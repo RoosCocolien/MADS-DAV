@@ -1296,3 +1296,23 @@ French share. x ticks every 5%, no decimals. Footnote: what a dot is, 17,938 mes
 - [ ] Mean vs. median on y, and say why.
 - [ ] Be able to explain test 2 and the log line in her own words.
 - [ ] Save the final figure (not yet saved to figures/).
+
+## Session 2026-10-09 (cont'd 4) — roos_05.6 §5.6.8: the mirror, Roos and Dutch
+
+**Roos asked:** two scatter plots of the impact on the length of *her* messages when she writes Dutch
+(her mother tongue): whole period, and while apart.
+
+**Done (Claude):** same steps as for Louis (author == 'Roos', nl → 1). `language_caption` and
+`messages_in` now take whose messages. Weekly `living` label reused from Louis's weeks. Straight line
+for now (`ROOS_LINE_FIT = {}`).
+
+**Numbers:** Roos's classified messages are 76% French, 12% English, 12% Dutch (whole chat); apart:
+75% fr / 19% en / 6% nl. MIN_MESSAGES drops one week for the first time: the chat's first week
+(13 Aug 2023, 7 messages, 0% Dutch, 34.7 words/message). Whole chat 161 weeks, r = −0.23;
+apart 63 weeks, r = −0.43. Apart, Dutch is 0.7–22% of a week; one week at ~22% Dutch (13 words) sits
+far right on its own.
+
+### Still open (Roos)
+- [ ] Read the two plots in her own words. Note: for Roos, the mother tongue is *not* the main chat
+      language (French is); does the "familiar language" idea still predict shorter Dutch?
+- [ ] Line choice for her plots; whether to run test 2 on her messages too.
