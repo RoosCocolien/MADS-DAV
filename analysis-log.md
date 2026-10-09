@@ -1316,3 +1316,14 @@ far right on its own.
 - [ ] Read the two plots in her own words. Note: for Roos, the mother tongue is *not* the main chat
       language (French is); does the "familiar language" idea still predict shorter Dutch?
 - [ ] Line choice for her plots; whether to run test 2 on her messages too.
+
+## Session 2026-10-09 (cont'd 5) — roos_05.6 §5.6.7: final graph with the median
+
+**Roos asked:** the final graph again, with the weekly median instead of the mean.
+**Done (Claude):** second final graph under the first; same title, subtitle, log-x line, footnote
+(dot = middle message of the week). Fit: median words = 0.3 − 3.42 · ln(share) → 2.4 fewer words
+per doubling of French (mean version: 3.1). Medians fall on whole numbers (rows); the ~21% French week
+stands out more (19 words). This version matches test 2, which also compares medians.
+
+### Still open (Roos)
+- [ ] Pick mean or median for the final graph, and say why.
