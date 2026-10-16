@@ -1376,3 +1376,48 @@ closest), never the size of a distance/gap.
 **Follow-up:** Roos found the first explanation too close to a translation of the notebook's style. Rewrote it
 as a plain-language reformulation (short sentences, analogies: shadow/lamp for PCA, rolled-up cake for the
 swiss roll, perplexity = "how many neighbours each point looks at"). Same three check questions still open.
+
+## Session 2026-10-16 (cont'd) — roos_06.5: does Louis say different things in French than in English?
+
+**Roos asked (NL):** `roos_` copies of all four lesson 6 notebooks, plus a fifth, her own: does Louis say
+different things in French than in English, weeks before Benji's birth only (after it he writes 68% French,
+7% English), compared week by week. **Her expectation:** French = more love and compliments, English = more
+businesslike/practical. Asked for 300 dimensions ("is that a good idea?") and k-means.
+
+**Done (Claude):** copied 06.1–06.4 to `roos_06.x`; new `roos_06.5-louis-fr-vs-en.ipynb`; new module
+`roos_pipeline/vectors.py` (`StripQuotedReply`, `WeekStart`, `WordCount` as `TransformBase` steps;
+`language_units`, `cluster_contrast`, `weekly_cluster_shares`, `cluster_examples`; plots `LanguageDumbbellPlot`,
+`WeeklyLanguagePanels` as `BasePlot`), settings in `settings.py`, 7 tests in `tests/roos_pipeline/test_vectors.py`
+(43 pass). Notebook runs in 95 s (34 s under notebooktester).
+
+**Choices made by Claude, for Roos to confirm or change:**
+- **Unit** = one session (6.4's fitted gap, 14.8 min for Louis) split by language. Sessions cut on all his
+  messages, so a language switch doesn't start a new session. Dutch left out of the comparison.
+- **Encoder** = `paraphrase-multilingual-MiniLM-L12-v2`, not 6.4's `all-MiniLM-L6-v2` (English-only: "je t'aime
+  mon amour" vs "I love you my love" cosine 0.34 there, 0.98 in the multilingual one).
+- **MIN_UNIT_WORDS = 4**: drops 564 French / 294 English units, mostly "hahaha", "merci", "bonne nuit 😘", "yes".
+- **Length confound found:** French units median 6 words vs English 23. With k=2, k-means split short vs long, not
+  meaning. Hence the shuffle test permutes fr/en *within week × length band* (4–8, 9–20, 21–40, 41+ words);
+  `beyond_strata` = observed difference minus the shuffle mean.
+- **K = 6** placeholder; silhouette 0.03–0.07 for every k (2–10) → a continuum cut into bands, not natural groups.
+- Colours: French `#CC79A7`, English `#009E73` (Okabe-Ito).
+
+**300 dimensions:** the encoder fixes 384; 300 can only mean PCA-reducing. 300 components hold 99.6% of the
+variance and k-means gives identical groups (adjusted Rand 1.00) → reduction to 300 changes nothing. 90% needs
+118 components; 2 components hold 10%. Answer left for Roos to write in 6.5.4.
+
+**Numbers (K=6, 1,133 French / 3,325 English units, 92 weeks, 10,000 shuffles):** French share vs English share,
+`beyond_strata`: group 0 4% vs 27% (−8.8 pts), 1: 6% vs 17% (−2.7), 2: 24% vs 5% (+14.1), 3: 44% vs 11% (+17.2),
+4: 8% vs 18% (−9.4), 5: 14% vs 22% (−10.5); all p ≤ 0.002. Closest-to-centre examples (Claude's reading, not
+named in the notebook): 3 = short warm/encouraging ("Je pense de ouf à toi 🫶🏻", "proud of you"), 4 = meeting up /
+arriving ("on my way", "à toute", "j'ai hâte"), 5 = practical things (furniture, bags, objects), 0 = English
+"how was your day / did you sleep", 1 = travel and stories, 2 = mixed-language short replies.
+**Caveat:** the PCA picture coloured by language shows French still sits apart; the encoder partly "sees" the
+language, so a group that is mostly French is not automatically a difference in *content*.
+
+### Still open (Roos)
+- [ ] Name the groups (`CLUSTER_NAMES`) after reading the examples, and choose `K` (and say why).
+- [ ] Answer "300 dimensions?" in 6.5.4 in her own words.
+- [ ] Write "What I found" (love/compliments group, practical group, week by week, expectation held?).
+- [ ] Checks listed at the end of the notebook: language-label errors, encoder seeing language, K±1,
+      MIN_UNIT_WORDS = 2.
