@@ -39,3 +39,4 @@ AGENTS.local.md
 .cursor/
 .lefthook-local.yml
 lefthook-local.yml
+demo/**
