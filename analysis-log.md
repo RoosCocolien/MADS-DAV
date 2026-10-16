@@ -1346,3 +1346,33 @@ weighted fit, say it in the footnote, MIN_MESSAGES higher as a check.
 ### Still open (Roos)
 - [ ] Why were the August 2024 weeks quiet and French? (together on holiday? her own knowledge)
 - [ ] Decide whether the plot shows the number of messages per week (dot size).
+
+## Session 2026-10-16 — explanation of notebook 06.1 (dimensionality reduction)
+
+**Roos asked (NL):** explain notebook 06.1 in Dutch.
+**Done (Claude):** walked through the whole notebook in Dutch: PCA as "most spread along = least
+distance to the line" (Pythagoras), SVD pieces (U, Σ, Vᵀ), scree plot before projection; penguins
+unscaled (PC1 = body mass, 99.99% = symptom), grams→kg flips PC1 to flipper length, StandardScaler
+gives PC1 = size / PC2 = bill shape (88%), species separation 3.09 → 9.50; swiss roll (PCA = shadow,
+t-SNE = neighbourhoods but tears the sheet); MNIST (PCA 2 comps = 17%, t-SNE ten clusters);
+perplexity: membership stable (silhouette 0.20–0.28), geometry not (Spearman 0.41); pure noise:
+k-means silhouette 0.016 raw vs ~0.31 on the t-SNE embedding → never cluster the embedding.
+
+### Still open (Roos)
+- [x] Answer the three check questions in her own words: (1) why 99.99% is bad, (2) why MNIST may skip
+      scaling but penguins not, (3) what you may/may not say about two distant t-SNE clusters.
+
+**Roos's answers (own words):** (1) PC1 was only weight, biggest variation came from the units → standardise.
+(2) Same units (pixels) need no standardising; penguins do, grams differ by 1000s vs small bill differences.
+(3) Nothing, unless it holds at every perplexity.
+**Corrections/additions given:** (1) correct; added: an extreme % is a red flag to check units first.
+(2) correct; added the substantive reason (a pixel that varies more should count more; scaling would inflate
+always-white corner pixels); it was bill *depth* (sd ~2 mm), not length. (3) almost: you *may* say they are two
+separate groups (membership is stable); if stable across perplexities you may report the *order* (e.g. 4–9
+closest), never the size of a distance/gap.
+
+### Still open (Roos)
+- [ ] Optional: a check question on §6.1.6 (t-SNE finds clusters in pure noise; never cluster the embedding).
+**Follow-up:** Roos found the first explanation too close to a translation of the notebook's style. Rewrote it
+as a plain-language reformulation (short sentences, analogies: shadow/lamp for PCA, rolled-up cake for the
+swiss roll, perplexity = "how many neighbours each point looks at"). Same three check questions still open.
