@@ -1445,3 +1445,14 @@ What changed in the course material:
 - [ ] Re-run roos_06.1–06.4 (not executed this session; only checked that all imports work).
 - [ ] Check whether the new 06.2 lesson (look at the score of the group you care about, not the overall mean;
       compare against other stretches of time) changes anything in roos_06.5's reading.
+- 2026-10-24 (same session): Roos asked for a plain-Dutch explanation of the new 06.2. Explained with four check
+  questions at the end (mean vs. own silhouette, time as confound, your own chat in 6.2.6) — answers still open.
+- Roos's answers to the 06.2 check questions:
+  - Q2 (why shuffled labels are unfair): "within the same period chunks resemble each other". The core is right;
+    the missing step is that shuffled groups are spread over the whole time span and so don't get that bonus,
+    which makes the 4chan run look more special than it is.
+  - Q3 (what other than typing style can separate her and Louis): language, emoji, filler words, typos, expressions,
+    message length, particular words, dropping vowels/capitals, punctuation. Good list. Notes: `NormaliseText`
+    lowercases, so capitals cannot count; language and topic are context more than style (like the links in Q).
+  - Q1 and Q4 explained further (weighted mean 10/90; bigger chunk = more stable counts but fewer chunks and a
+    longer time span). Open: try OWN_CHUNK 250/500/1000/2000 herself, after writing a prediction first.
