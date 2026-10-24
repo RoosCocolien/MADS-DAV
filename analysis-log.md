@@ -1421,3 +1421,27 @@ language, so a group that is mostly French is not automatically a difference in 
 - [ ] Write "What I found" (love/compliments group, practical group, week by week, expectation held?).
 - [ ] Checks listed at the end of the notebook: language-label errors, encoder seeing language, K±1,
       MIN_UNIT_WORDS = 2.
+
+## Session — 2026-10-24: roos_06.1–06.4 brought up to date with the teacher's lesson 6 rebuild
+
+Raoul's commits e295de3 and 02f18bd (2026-10-23) rewrote lesson 6 after the roos_ copies were made (2026-10-16).
+A three-way comparison (teacher version at copy time vs. roos_ copy vs. new teacher version) showed that the
+roos_ copies had no edits of Roos's own (only line endings differed), so each one was replaced with the new
+teacher version. roos_06.5 and `roos_pipeline/vectors.py` don't depend on 06.1–06.4 and were left alone.
+
+What changed in the course material:
+- **06.1:** §6.1.6 renamed to "t-SNE on pure noise"; extra point: k-means always returns K groups, so
+  "k-means found K clusters" is never a finding by itself.
+- **06.2:** the QAnon verdict was corrected. The overall silhouette mean is dominated by the 90 "after" chunks.
+  The 4chan chunks' own silhouette drops from about 0.21 to 0.07 once only letters are kept, and against other runs
+  of consecutive chunks (NullPlot) it ends up in the middle of the pack → "this picture is not evidence
+  for two authors".
+- **06.3:** rebuilt around the vector cache as transfer learning, cosine similarity drawn as arrows, nearest
+  neighbour via the similarity matrix (high and low cosine split).
+- **06.4:** rebuilt step by step (blob → k-means rescue checked → three ways to define a row → meaning vs.
+  habit → race against trigrams → sentiment checked against smileys → "Your turn").
+
+### Still open (Roos)
+- [ ] Re-run roos_06.1–06.4 (not executed this session; only checked that all imports work).
+- [ ] Check whether the new 06.2 lesson (look at the score of the group you care about, not the overall mean;
+      compare against other stretches of time) changes anything in roos_06.5's reading.
