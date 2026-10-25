@@ -19,6 +19,7 @@ re-running any of it.
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -30,6 +31,10 @@ from scipy import optimize, stats
 from roos_pipeline import settings
 from roos_pipeline.features import PregnancyWeek
 from roos_pipeline.settings import Paths
+
+if TYPE_CHECKING:
+    # scipy has no public name for a frozen distribution; only needed for the type.
+    from scipy.stats._distn_infrastructure import rv_discrete_frozen
 
 TOPICS = ["child", "climbing", "running", "sports"]
 SYMPTOMS = ["nausea", "fatigue", "either"]
@@ -197,8 +202,12 @@ def weekly_symptoms(features: pd.DataFrame) -> pd.DataFrame:
     return weekly.reset_index()
 
 
-def nbinom_from(mu: float, r: float):
-    """scipy's nbinom takes (n, p); n is r, and p = r / (r + mu)."""
+def nbinom_from(mu: float, r: float) -> rv_discrete_frozen:
+    """scipy's nbinom takes (n, p); n is r, and p = r / (r + mu).
+
+    Calling `stats.nbinom` (an `nbinom_gen`) with both parameters fixes them, and
+    gives back a *frozen* distribution with .pmf/.logpmf ready to use.
+    """
     return stats.nbinom(r, r / (r + mu))
 
 
