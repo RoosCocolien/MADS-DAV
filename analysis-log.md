@@ -1456,3 +1456,21 @@ What changed in the course material:
     lowercases, so capitals cannot count; language and topic are context more than style (like the links in Q).
   - Q1 and Q4 explained further (weighted mean 10/90; bigger chunk = more stable counts but fewer chunks and a
     longer time span). Open: try OWN_CHUNK 250/500/1000/2000 herself, after writing a prediction first.
+
+## 2026-10-25 — atlas on roos_pipeline
+
+- Installed atlas (code map). It was first blocked by Defender ASR on the work laptop, then worked. MCP server in
+  `~/.claude.json`, with the full path to atlas.exe.
+- `__main__`: `STAGES[name](paths)` hid the four stages from atlas. Now `STAGES` is a tuple of names (used by
+  `click.Choice`) plus `run_stages` with four calls written out. Test
+  `test_main_calls_the_stages_in_the_order_of_STAGES` keeps the two in step. atlas `route main` now shows
+  prepare → features → aggregate → figures.
+- `aggregate.nbinom_from -> rv_discrete_frozen` (not `nbinom_gen`: that is the type of `stats.nbinom` itself,
+  not of what calling it gives back).
+- README: added "The flowchart as atlas reads it".
+
+### Still open (Roos)
+- [ ] `3_weekly_symptoms.parquet` is written but no stage reads it (only a test). Keep it as an inspection
+      file, or drop it?
+- [ ] atlas `doors`: does `roos_pipeline/__init__.py` need `__all__`? (What may the lesson 6 notebook import?)
+- [ ] The same "what does this give back?" findings in the roos_ notebooks (nbinom_from, tail_density, ...).

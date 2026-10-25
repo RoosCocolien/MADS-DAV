@@ -106,3 +106,31 @@ def test_topic_balance_without_enough_weeks_for_a_run():
     assert stats["n_runs"] == 0
     assert stats["max_run_gap"] is None
     assert "no time-order check" in figures.balance_text(stats)
+
+
+@pytest.mark.parametrize(
+    ("stage", "start", "expected"),
+    [
+        (None, None, ["prepare", "features", "aggregate", "figures"]),
+        ("figures", None, ["figures"]),
+        (None, "aggregate", ["aggregate", "figures"]),
+    ],
+)
+def test_main_calls_the_stages_in_the_order_of_STAGES(
+    monkeypatch, paths, stage, start, expected
+):
+    """The written-out calls in run_stages and the STAGES tuple (which click.Choice
+    shows) must agree: same names, same order."""
+    from roos_pipeline import __main__ as cli
+
+    called = []
+    for module in (prepare, features, aggregate, figures):
+        name = module.__name__.rsplit(".", 1)[-1]
+        monkeypatch.setattr(
+            module, "run", lambda _paths, name=name: called.append(name)
+        )
+
+    cli.run_stages(paths, cli.selected_stages(stage, start))
+    assert called == expected
+    # Whatever was selected ran in the order click.Choice offers it.
+    assert called == [s for s in cli.STAGES if s in called]

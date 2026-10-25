@@ -82,6 +82,63 @@ Grey = a goad_toolkit class used as-is (`RegexFeature`, `SortValues` inside the 
 marked "+" combine both); orange = my own code; blue cylinders = files on disk in
 `data/processed/roos/` (gitignored: the chat never enters git).
 
+## The flowchart as atlas reads it
+
+The chart above is drawn by hand. This one is copied from what
+[atlas](https://github.com/raoulg/atlas) reads in the code itself (`atlas serve`,
+part `roos_pipeline`; `route` of `main`), so it shows what the code *does*, not what
+I meant it to do. Boxes are modules, cylinders are the files atlas sees them read
+and write; the numbers on `main`'s arrows are the order of the calls in
+`run_stages`, each only when that stage is selected (`--stage` / `--from`).
+
+```mermaid
+flowchart LR
+    main["__main__.main<br/>--stage / --from"]
+    cfg[/"config.toml"/]
+    raw[("data/processed/<br/>chat export")]
+
+    prepare["prepare"]
+    features["features"]
+    aggregate["aggregate"]
+    figures["figures"]
+    plots["plots"]
+
+    m1[("1_messages.parquet")]
+    f2[("2_features.parquet")]
+    t_lang[("3_language_share.parquet")]
+    t_top[("3_weekly_topics.parquet")]
+    t_tstat[("3_topic_stats.json")]
+    t_sym[("3_weekly_symptoms.parquet")]
+    t_sstat[("3_symptom_stats.json")]
+    out[("figures/pipeline/<br/>5 figures · png + svg")]
+
+    main -- "1" --> prepare
+    main -- "2" --> features
+    main -- "3" --> aggregate
+    main -- "4" --> figures
+
+    cfg --> prepare
+    raw --> prepare --> m1
+    m1 --> features --> f2
+    f2 --> aggregate
+    aggregate --> t_lang & t_top & t_tstat & t_sym & t_sstat
+    t_lang & t_top & t_tstat & t_sstat --> figures
+    figures -. "calls, no data" .-> plots
+    figures --> out
+
+    classDef code fill:#fde3cf,stroke:#D55E00,color:#000
+    classDef file fill:#fff,stroke:#0072B2,color:#000
+    class main,prepare,features,aggregate,figures,plots code
+    class cfg,raw,m1,f2,t_lang,t_top,t_tstat,t_sym,t_sstat,out file
+```
+
+`3_weekly_symptoms.parquet` has no arrow out: aggregate writes it, but no stage reads
+it (the figure uses `3_symptom_stats.json`; only `test_pipeline.py` opens it). `vectors` is left out: it is not part of
+the pipeline yet.
+
+To redraw it yourself: `atlas serve` in the repository, open part `roos_pipeline`, and
+shift-click the package to focus on it.
+
 ## Why the boundaries sit where they do
 
 Every arrow between two stages is a file. That is the whole design.

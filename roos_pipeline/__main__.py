@@ -17,39 +17,52 @@ from loguru import logger
 from roos_pipeline import aggregate, features, figures, prepare
 from roos_pipeline.settings import Paths
 
-STAGES = {
-    "prepare": prepare.run,
-    "features": features.run,
-    "aggregate": aggregate.run,
-    "figures": figures.run,
-}
+# The order of the stages, for --stage/--from. `run_stages` calls them in this same
+# order, written out so the calls can be read (and drawn by atlas) one by one;
+# test_main_calls_the_stages_in_the_order_of_STAGES keeps the two in step.
+STAGES = ("prepare", "features", "aggregate", "figures")
+
+
+def selected_stages(stage: str | None, start: str | None) -> list[str]:
+    """--stage: that one stage; --from: that stage and every one after it; else all."""
+    if stage:
+        return [stage]
+    if start:
+        return list(STAGES[STAGES.index(start) :])
+    return list(STAGES)
+
+
+def run_stages(paths: Paths, selected: list[str]) -> None:
+    """Run the selected stages, always in pipeline order."""
+    if "prepare" in selected:
+        logger.info("--- stage: prepare")
+        prepare.run(paths)
+    if "features" in selected:
+        logger.info("--- stage: features")
+        features.run(paths)
+    if "aggregate" in selected:
+        logger.info("--- stage: aggregate")
+        aggregate.run(paths)
+    if "figures" in selected:
+        logger.info("--- stage: figures")
+        figures.run(paths)
 
 
 @click.command()
 @click.option(
     "--stage",
-    type=click.Choice(list(STAGES)),
+    type=click.Choice(STAGES),
     help="Run only this stage.",
 )
 @click.option(
     "--from",
     "start",
-    type=click.Choice(list(STAGES)),
+    type=click.Choice(STAGES),
     help="Run this stage and every stage after it.",
 )
 def main(stage: str | None, start: str | None) -> None:
     matplotlib.use("Agg")  # write files, never open a window
-    names = list(STAGES)
-    if stage:
-        selected = [stage]
-    elif start:
-        selected = names[names.index(start) :]
-    else:
-        selected = names
-    paths = Paths()
-    for name in selected:
-        logger.info(f"--- stage: {name}")
-        STAGES[name](paths)
+    run_stages(Paths(), selected_stages(stage, start))
 
 
 if __name__ == "__main__":
