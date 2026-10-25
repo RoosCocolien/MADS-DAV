@@ -49,6 +49,14 @@ def test_stages_run_one_after_another(paths, fake_chat):
     lang = pd.read_parquet(paths.language_share)
     assert lang.groupby("move_period")["pct"].sum().to_numpy() == pytest.approx(100)
 
+    # Louis's 15 long-distance weeks; the week of the move and after are left out.
+    french = pd.read_parquet(paths.weekly_french)
+    assert len(french) == 15
+    assert (french["week"] < settings.MOVE_DATE).all()
+    length = json.loads(paths.french_stats.read_text())
+    assert length["n_weeks_below"] == length["n_weeks_compared"] == 15
+    assert length["median_difference"] == pytest.approx(-6.0)
+
 
 def test_figures_stage_needs_only_the_stage_3_files(paths, fake_chat):
     prepare.run(paths, raw=fake_chat)
@@ -60,13 +68,33 @@ def test_figures_stage_needs_only_the_stage_3_files(paths, fake_chat):
 
     # The fake chat is 3x by construction, so the "three times" guard passes.
     figures.run(paths)
-    assert len(list(paths.figures.glob("*.png"))) == 5
+    assert len(list(paths.figures.glob("*.png"))) == 6
 
 
 def test_three_times_guard_stops_a_stale_claim():
     stats = {"mean_hard": 10.0, "mean_normal": 5.0}  # 2x, not 3x
     with pytest.raises(ValueError, match="three times"):
         figures.prepare_and_plan(stats)
+
+
+def test_familiar_language_guard_stops_a_stale_claim():
+    stats = {"wilcoxon_p_less": 0.02, "median_difference": -4.0}  # not p < 0.001
+    with pytest.raises(ValueError, match="no longer supports"):
+        figures.familiar_language(pd.DataFrame(), stats)
+
+
+def test_within_week_differences_needs_enough_in_both_groups():
+    week_1, week_2 = pd.Timestamp("2024-01-07"), pd.Timestamp("2024-01-14")
+    messages = pd.DataFrame(
+        {
+            "week": [week_1] * 10 + [week_2] * 6,
+            # Week 1: 5 French of 2 words, 5 other of 8. Week 2: only 1 French.
+            "is_french": [1.0] * 5 + [0.0] * 5 + [1.0] + [0.0] * 5,
+            "n_words": [2] * 5 + [8] * 5 + [2] + [8] * 5,
+        }
+    )
+    diff = aggregate.within_week_differences(messages, min_per_group=5)
+    assert diff.to_dict() == {week_1: -6.0}
 
 
 def weekly_around_test(n_before: int, n_after: int) -> pd.DataFrame:

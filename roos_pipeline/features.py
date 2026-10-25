@@ -7,10 +7,12 @@
                                                               (Baby is taking over)
       -> NormaliseText -> RegexFeature x2 -> MentionFlag
                                           nausea, fatigue, either  (prepare and plan)
+      -> RegexFeature -> MapValues        n_words, is_french  (familiar language)
     -> 2_features.parquet
 
-`RegexFeature` comes from goad_toolkit as-is; the other classes are new, and every one
-is a `TransformBase` so it slots into `Pipeline.add(...)` like goad's own steps.
+`RegexFeature` and `MapValues` come from goad_toolkit as-is; the other classes are new,
+and every one is a `TransformBase` so it slots into `Pipeline.add(...)` like goad's own
+steps.
 """
 
 from __future__ import annotations
@@ -20,7 +22,12 @@ import unicodedata
 import numpy as np
 import pandas as pd
 import py3langid as langid
-from goad_toolkit.datatransforms import Pipeline, RegexFeature, TransformBase
+from goad_toolkit.datatransforms import (
+    MapValues,
+    Pipeline,
+    RegexFeature,
+    TransformBase,
+)
 from loguru import logger
 
 from roos_pipeline import settings
@@ -131,7 +138,7 @@ class PregnancyWeek(TransformBase):
 
 
 def build_feature_pipeline() -> Pipeline:
-    """Every per-message column the five figures need, in dependency order."""
+    """Every per-message column the six figures need, in dependency order."""
     pipeline = Pipeline()
     pipeline.add(LanguageFeature, column="message", languages=settings.LANGUAGES)
     pipeline.add(
@@ -177,6 +184,22 @@ def build_feature_pipeline() -> Pipeline:
         name="either_flag",
         columns=list(settings.SYMPTOM_PATTERNS),
         feature="either",
+    )
+    pipeline.add(
+        RegexFeature,
+        name="words",
+        column="message",
+        pattern=settings.WORD_PATTERN,
+        feature="n_words",
+        mode="count",
+    )
+    # NaN for "unknown": a weekly mean then skips it, so the French share is a share
+    # of the classified messages only, like the bars of figures 1 and 2.
+    pipeline.add(
+        MapValues,
+        column="language",
+        mapping={"fr": 1.0, "en": 0.0, "nl": 0.0},
+        feature="is_french",
     )
     return pipeline
 

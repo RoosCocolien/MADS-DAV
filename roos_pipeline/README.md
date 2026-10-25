@@ -1,6 +1,6 @@
 # roos_pipeline
 
-My WhatsApp chat with Louis, from raw export to five figures, in one command:
+My WhatsApp chat with Louis, from raw export to six figures, in one command:
 
 ```bash
 uv run python -m roos_pipeline                   # all four stages, ~13 s
@@ -21,6 +21,12 @@ share*, before vs. after the positive test (the test week itself left out), chec
 shuffle of the before/after label (10,000×) and, keeping the order of time, against every
 run of 10 consecutive weeks before the test. Same two checks as figure 5.
 | 5 | How to survive a pregnancy: prepare and plan | `roos_04.6d`, code cell 11 | `figures/pipeline/5_prepare_and_plan` |
+| 6 | Familiar language needs fewer words | `roos_05.6`, code cell 14 | `figures/pipeline/6_familiar_language_fewer_words` |
+
+Figure 6 is one dot per long-distance week (Louis's French share against his median
+words per message) with the line `words = a + b · ln(share)`. Underneath: within each
+week, his French messages against his English and Dutch ones (median words, at least 5
+of each), checked with a one-sided Wilcoxon signed-rank test over the weeks.
 
 ## The flowchart
 
@@ -39,6 +45,7 @@ flowchart LR
         f1["LanguageFeature"] --> f2["SplitAtDate<br/>move_period"]
         f2 --> f3["RegexFeature ×3<br/>+ MentionFlag"]
         f3 --> f4["NormaliseText<br/>+ RegexFeature ×2<br/>+ MentionFlag"]
+        f4 --> f5["RegexFeature n_words<br/>MapValues is_french"]
     end
 
     subgraph S3["3 · aggregate — grain changes"]
@@ -46,6 +53,7 @@ flowchart LR
         a1["language_share<br/>% per period"]
         a2["weekly_topics<br/>share per week"] --> a5["child − sport, before/after test<br/>shuffle + 10-week runs"]
         a3["daily → PregnancyWeek<br/>→ weekly_symptoms"] --> a4["fit 2 × negative binomial<br/>+ 10,000 shuffles"]
+        a6["Filter Louis<br/>→ weekly_french"] --> a7["log fit<br/>+ within-week Wilcoxon"]
     end
 
     subgraph S4["4 · figures — draw only"]
@@ -55,6 +63,7 @@ flowchart LR
         g3["3 · Baby: climbing"]
         g4["4 · Baby: sports"]
         g5["5 · Prepare and plan"]
+        g6["6 · Familiar language"]
     end
 
     raw --> S1
@@ -69,17 +78,21 @@ flowchart LR
     t2 --> g3 & g4
     t4 --> g3 & g4
     t3 --> g5
+    a6 --> t5[("3_weekly_french")]
+    a7 --> t6[("3_french_stats.json")]
+    t5 & t6 --> g6
 
     classDef goad fill:#e8e8e8,stroke:#7f7f7f,color:#000
     classDef mine fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
-    class p3,f3,f4 goad
-    class p1,p2,f1,f2,a1,a2,a3,a4,a5,g1,g2,g3,g4,g5 mine
-    class raw,m,f,t1,t2,t3,t4 file
+    class p3,f3,f4,f5,a6 goad
+    class p1,p2,f1,f2,a1,a2,a3,a4,a5,a7,g1,g2,g3,g4,g5,g6 mine
+    class raw,m,f,t1,t2,t3,t4,t5,t6 file
 ```
 
-Grey = a goad_toolkit class used as-is (`RegexFeature`, `SortValues` inside the boxes
-marked "+" combine both); orange = my own code; blue cylinders = files on disk in
+Grey = a goad_toolkit class used as-is (`RegexFeature`, `SortValues`, `MapValues`,
+`Filter`, `RegPlot`; boxes marked "+" combine both, and "Filter Louis → weekly_french"
+is goad's `Filter` followed by my own weekly step); orange = my own code; blue cylinders = files on disk in
 `data/processed/roos/` (gitignored: the chat never enters git).
 
 ## The flowchart as atlas reads it
@@ -110,7 +123,9 @@ flowchart LR
     t_tstat[("3_topic_stats.json")]
     t_sym[("3_weekly_symptoms.parquet")]
     t_sstat[("3_symptom_stats.json")]
-    out[("figures/pipeline/<br/>5 figures · png + svg")]
+    t_fr[("3_weekly_french.parquet")]
+    t_frstat[("3_french_stats.json")]
+    out[("figures/pipeline/<br/>6 figures · png + svg")]
 
     main -- "1" --> prepare
     main -- "2" --> features
@@ -121,15 +136,15 @@ flowchart LR
     raw --> prepare --> m1
     m1 --> features --> f2
     f2 --> aggregate
-    aggregate --> t_lang & t_top & t_tstat & t_sym & t_sstat
-    t_lang & t_top & t_tstat & t_sstat --> figures
+    aggregate --> t_lang & t_top & t_tstat & t_sym & t_sstat & t_fr & t_frstat
+    t_lang & t_top & t_tstat & t_sstat & t_fr & t_frstat --> figures
     figures -. "calls, no data" .-> plots
     figures --> out
 
     classDef code fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
     class main,prepare,features,aggregate,figures,plots code
-    class cfg,raw,m1,f2,t_lang,t_top,t_tstat,t_sym,t_sstat,out file
+    class cfg,raw,m1,f2,t_lang,t_top,t_tstat,t_sym,t_sstat,t_fr,t_frstat,out file
 ```
 
 `3_weekly_symptoms.parquet` has no arrow out: aggregate writes it, but no stage reads
@@ -160,6 +175,9 @@ From **goad_toolkit** (installed with `uv`, pinned in `uv.lock`):
   in, `transform(data, **params) -> DataFrame`. Its `__call__` first checks that a
   `column=` parameter exists in the frame, then calls `transform` with the parameters
   given at construction. Every step in this pipeline is one of these.
+- Figure 6's line is goad's **`RegPlot`** with `logx=True`: the docstring's point, that
+  the choice of fit is a claim about the relationship, is why the line is the log of x
+  (roos_05.6 §5.6.5) and not seaborn's default straight one.
 - **`Pipeline`**: holds steps *as classes plus parameters* (`add` does not run
   anything) and runs them in order in `apply`, on one copy of the input, so the frame
   passed in is never changed. Steps are named, so `pipeline["move_period"]` shows a
@@ -171,7 +189,7 @@ From **goad_toolkit** (installed with `uv`, pinned in `uv.lock`):
   `plot_on(other)` hands this figure's axes to another `BasePlot`, so classes stack
   as layers.
 - Used as-is: `RegexFeature`, `SortValues`, `RollingAvg`, `LinePlot`,
-  `NullDistribution`.
+  `NullDistribution`, `Filter`, `MapValues`, `RegPlot`.
 
 From **scripts/** (the teacher's, unchanged): `BarPlot`, which `LabelledBarPlot` extends.
 
@@ -206,7 +224,7 @@ Every date, regex and colour lives in `settings.py`, and nowhere else.
 | wrong type, e.g. calling `.rename` on something that may be a DataFrame | `ty` (lefthook) | every commit |
 | a step computes the wrong number (week boundaries, OR counted twice, regex matches the wrong word) | `pytest`, unit tests (lefthook, when this folder changes) | commit |
 | stages don't fit together; a stage secretly needs an earlier file | `pytest`, `test_pipeline.py` | commit |
-| a new export brings a third display name; the hard weeks aren't 10; the subtitle's "three times" no longer holds | checks inside the pipeline (`check_messages`, `symptom_stats`, `prepare_and_plan`) | every run, on the real data |
+| a new export brings a third display name; the hard weeks aren't 10; the subtitle's "three times" no longer holds; figure 6's "p < 0.001" no longer holds | checks inside the pipeline (`check_messages`, `symptom_stats`, `prepare_and_plan`, `familiar_language`) | every run, on the real data |
 | a chart that is correct but misleading or ugly (overlapping labels, a doubled axis label) | **looking at it** | after every run |
 
 The tests run on a fake chat built in `tests/roos_pipeline/conftest.py`, never on the

@@ -4,6 +4,8 @@
                               -> praat_nederlands_bars     (roos_02.5, code cell 5)
     3_weekly_topics.parquet   -> baby_is_taking_over x2    (roos_03.3, code cells 6, 7)
     3_symptom_stats.json      -> prepare_and_plan          (roos_04.6d, code cell 11)
+    3_weekly_french.parquet   -> familiar_language         (roos_05.6, code cell 14)
+    3_french_stats.json
 
 Each figure is one function: settings (titles, labels, colours) in, `Figure` out. The
 only calculations left here are presentation choices: the rolling average (how
@@ -13,12 +15,14 @@ smooth a line looks) and evaluating a fitted curve at whole numbers.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pandas as pd
 from goad_toolkit.datatransforms import Pipeline, RollingAvg
-from goad_toolkit.visualizer import PlotSettings
+from goad_toolkit.visualizer import PlotSettings, RegPlot
 from loguru import logger
 from matplotlib.figure import Figure
+from matplotlib.ticker import MultipleLocator, PercentFormatter
 
 from roos_pipeline import settings
 from roos_pipeline.aggregate import nbinom_from
@@ -30,7 +34,9 @@ from roos_pipeline.plots import (
 )
 from roos_pipeline.settings import Paths
 
-FOOTNOTE = {"fontsize": 8.5, "color": "dimgray"}
+# `Any`, not the inferred `float | str`: ty checks a `**` dict's value type against
+# every keyword of `fig.text`, including `fontdict`, which only takes a dict.
+FOOTNOTE: dict[str, Any] = {"fontsize": 8.5, "color": "dimgray"}
 
 
 def save(fig: Figure, name: str, paths: Paths) -> None:
@@ -266,12 +272,111 @@ def prepare_and_plan(stats: dict) -> Figure:
     return fig
 
 
+# --- relationships -----------------------------------------------------------------
+
+LANGUAGE_NAMES = {"en": "English", "nl": "Dutch", "fr": "French"}
+
+
+def language_caption(stats: dict) -> str:
+    """How many of Louis's messages the dots rest on, and their language mix.
+
+    Percentages are over the classified messages, so they add up to 100%; the
+    "unknown" ones are counted separately.
+    """
+    counts = stats["language_counts"]
+    known = sum(counts[code] for code in LANGUAGE_NAMES)
+    shares = ", ".join(
+        f"{100 * counts[code] / known:.0f}% {name}"
+        for code, name in LANGUAGE_NAMES.items()
+    )
+    return (
+        f"Based on {stats['n_messages']:,} messages from Louis over "
+        f"{stats['n_weeks']} weeks: {shares}\n"
+        f"(of the {known:,} messages long enough to classify; "
+        f"{counts['unknown']:,} messages under {settings.MIN_CHARS} characters "
+        f"have no language but do count for words per message)."
+    )
+
+
+def familiar_language(weekly: pd.DataFrame, stats: dict) -> Figure:
+    """One dot per long-distance week: Louis's French share against his median message
+    length, with the log-of-x line and the within-week test underneath."""
+    # The footnote says "p < 0.001" and "fewer" in words: if the data upstream ever
+    # change, this stops the pipeline instead of printing a claim the test no longer makes.
+    if not (stats["wilcoxon_p_less"] < 0.001 and stats["median_difference"] < 0):
+        raise ValueError(
+            "The test no longer supports the line under the graph: rewrite it."
+        )
+
+    final = PlotSettings(
+        figsize=(9, 6),
+        title="",
+        xlabel="share of messages in French that week",
+        ylabel="words per message (median that week)",
+    )
+    # logx: median words = a + b * ln(share), the line chosen in roos_05.6 §5.6.5.
+    fig, ax = RegPlot(final).plot(
+        data=weekly,
+        x="french_share",
+        y="median_words",
+        logx=True,
+        ci=None,
+        color=settings.DARK_GREY,
+        scatter_kws={"color": settings.LONG_DISTANCE_ORANGE, "alpha": 0.75},
+    )
+    ax.set(xlabel=final.xlabel, ylabel=final.ylabel)
+    ax.xaxis.set_major_locator(MultipleLocator(0.05))
+    ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+    ax.text(
+        0.98,
+        0.80,
+        "line: every doubling of French\n"
+        f"= {abs(stats['words_per_doubling']):.1f} fewer words per message",
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        color=settings.DARK_GREY,
+    )
+
+    fig.subplots_adjust(top=0.84)
+    fig.suptitle(
+        "Familiar language needs fewer words", fontsize=18, fontweight="bold", y=0.98
+    )
+    fig.text(
+        0.5,
+        0.905,
+        "While we lived apart, Louis wrote shorter messages when he wrote in French.",
+        ha="center",
+        fontsize=11,
+    )
+
+    first_day = pd.Timestamp(stats["first_day"])
+    last_week = pd.Timestamp(stats["last_week"])
+    footnote = "\n".join(
+        [
+            f"Each dot is one week we lived apart ({first_day:%b %Y} – "
+            f"{last_week:%b %Y}): what share of Louis's messages that week was "
+            "French, and how many words his middle message had.",
+            language_caption(stats),
+            "Within the same week, his French messages were shorter than his "
+            f"English and Dutch ones in {stats['n_weeks_below']} of "
+            f"{stats['n_weeks_compared']} weeks (typically "
+            f"{abs(stats['median_difference']):.0f} words fewer; Wilcoxon "
+            "signed-rank, p < 0.001).",
+        ]
+    )
+    fig.text(0.5, -0.02, footnote, ha="center", va="top", linespacing=1.5, **FOOTNOTE)
+    return fig
+
+
 def run(paths: Paths) -> None:
-    """Read the stage-3 files and write all five figures."""
+    """Read the stage-3 files and write all six figures."""
     lang = pd.read_parquet(paths.language_share)
     weekly = pd.read_parquet(paths.weekly_topics)
     stats = json.loads(paths.symptom_stats.read_text())
     balance = json.loads(paths.topic_stats.read_text())
+    french = pd.read_parquet(paths.weekly_french)
+    french_stats = json.loads(paths.french_stats.read_text())
 
     save(praat_nederlands_panels(lang), "1_praat_nederlands_panels", paths)
     save(praat_nederlands_bars(lang), "2_praat_nederlands_bars", paths)
@@ -280,4 +385,9 @@ def run(paths: Paths) -> None:
         fig = baby_is_taking_over(weekly, colors, balance[sport])
         save(fig, f"{i}_baby_taking_over_{sport}", paths)
     save(prepare_and_plan(stats), "5_prepare_and_plan", paths)
-    logger.success(f"figures: 5 figures -> {paths.figures}")
+    save(
+        familiar_language(french, french_stats),
+        "6_familiar_language_fewer_words",
+        paths,
+    )
+    logger.success(f"figures: 6 figures -> {paths.figures}")

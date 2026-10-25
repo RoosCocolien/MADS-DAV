@@ -28,6 +28,10 @@ def fake_chat() -> pd.DataFrame:
     Weeks -2..3 ("normal"): one fatigue message a week. Weeks 5..14 ("hard"): three
     a week. Plus a few messages for language and topics, and one bare timestamp in
     week 4, which belongs to neither group.
+
+    Weeks -2..12 (all before the move): Louis also writes 5-7 two-word French
+    messages and 6 eight-word English ones, on a Tuesday, so each lands in one
+    calendar week. His French is 6 words shorter (median) in every one of them.
     """
     start = settings.PREGNANCY_START
     rows = []
@@ -39,6 +43,17 @@ def fake_chat() -> pd.DataFrame:
         for i in range(n_tired):
             when = start + pd.Timedelta(weeks=week, days=1, hours=8 + i)
             rows.append(message(when, "Louis Ancien", "je suis crevée"))
+    for week in range(-2, 13):
+        tuesday = start + pd.Timedelta(weeks=week, days=2)
+        n_french = 5 + week % 3  # a different French share from week to week
+        for i in range(n_french):
+            when = tuesday + pd.Timedelta(hours=9, minutes=i)
+            rows.append(message(when, "Louis", "bonne nuit"))
+        for i in range(6):
+            when = tuesday + pd.Timedelta(hours=18, minutes=i)
+            rows.append(
+                message(when, "Louis", "that sounds like a lovely idea for saturday")
+            )
     before_move = settings.MOVE_DATE - pd.Timedelta(days=2)
     rows += [
         message(before_move, "~Louis Chessé", "we go climbing tomorrow"),

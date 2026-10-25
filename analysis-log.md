@@ -1474,3 +1474,21 @@ What changed in the course material:
       file, or drop it?
 - [ ] atlas `doors`: does `roos_pipeline/__init__.py` need `__all__`? (What may the lesson 6 notebook import?)
 - [ ] The same "what does this give back?" findings in the roos_ notebooks (nbinom_from, tail_density, ...).
+
+## 2026-10-25 — figure 6 in roos_pipeline: "Familiar language needs fewer words"
+
+- Hand-in figure for relationships (`roos_05.6`, code cell 14, the median version) moved into the pipeline as
+  figure 6 → `figures/pipeline/6_familiar_language_fewer_words.png/.svg`.
+- features: `n_words` (goad `RegexFeature`, `\S+`) and `is_french` (goad `MapValues`, NaN for "unknown").
+- aggregate: goad `Filter` on Louis → `weekly_french` (long-distance weeks, ≥ `MIN_MESSAGES` = 10) →
+  `french_length_stats` (log fit + within-week Wilcoxon) → `3_weekly_french.parquet`, `3_french_stats.json`.
+- figures: goad `RegPlot` with `logx=True`; a guard stops the run if the footnote's "p < 0.001, fewer" no longer holds.
+- Same numbers as the notebook: 64 weeks, 63 of 63 below 0, median −4 words, p = 2.2e-12, −2.4 words per doubling.
+- Tests: fake chat got Louis's French/English block; 48 pass.
+
+### Still open (Roos)
+- [ ] `MIN_MESSAGES = 10` was called "a first guess, not a decision yet" in 5.6.2. It is now a pipeline setting:
+      can you say why 10, or does it need a check (e.g. 5 / 10 / 20 and see whether the figure changes)?
+- [x] ty: `fig.text(..., **FOOTNOTE)` gave `invalid-argument-type` 5×. Fixed with `FOOTNOTE: dict[str, Any]`
+      (ty checked the inferred `float | str` against every keyword, `fontdict` too). Left: `plots.py:660`
+      (`idxmax()` is `Hashable` to ty), older, not blocking.

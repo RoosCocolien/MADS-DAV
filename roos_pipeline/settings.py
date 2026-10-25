@@ -96,6 +96,13 @@ SYMPTOM_PATTERNS: dict[str, str] = {
     ),
 }
 
+# --- lesson 5: Louis's French and message length (roos_05.6, 2026-10-09) ------------
+
+# Words are runs of characters without a space: an emoji or a link is one word.
+WORD_PATTERN = r"\S+"
+MIN_MESSAGES = 10  # Louis's messages in a week before it becomes a dot (fewer: noisy)
+MIN_PER_GROUP = 5  # French and other messages each, before a week gets a median gap
+
 # --- lesson 6: Louis in French vs. English (roos_06.5, 2026-10-16) -----------------
 
 COMPARE_LANGUAGES = ["fr", "en"]
@@ -180,3 +187,11 @@ class Paths:
     @property
     def symptom_stats(self) -> Path:
         return self.processed / "3_symptom_stats.json"
+
+    @property
+    def weekly_french(self) -> Path:
+        return self.processed / "3_weekly_french.parquet"
+
+    @property
+    def french_stats(self) -> Path:
+        return self.processed / "3_french_stats.json"
