@@ -1492,3 +1492,22 @@ What changed in the course material:
 - [x] ty: `fig.text(..., **FOOTNOTE)` gave `invalid-argument-type` 5×. Fixed with `FOOTNOTE: dict[str, Any]`
       (ty checked the inferred `float | str` against every keyword, `fontdict` too). Left: `plots.py:660`
       (`idxmax()` is `Hashable` to ty), older, not blocking.
+
+## 2026-10-25 — roos_06.5: sessions, scree plot, how many PCA components
+
+- Session (6.5.2) has no fixed length: a new one starts after a gap > 887 s (14.8 min, fitted on Louis's own
+  gaps). A session can be one message or hours long.
+- Scree plot explained: variance per component, look for the elbow; cumulative line as extra.
+- Components vs. dimensions: dimensions = the encoder's 384 numbers; components = the same cloud rotated by PCA,
+  ordered by variance. Keeping n components = dropping the 384 − n weakest directions.
+- New cell after 6.5.4's answer: k-means (k = 6) on 5…300 PCA components, adjusted Rand index against all 384,
+  with a yardstick line (384 vs. 384 with another seed: ARI 0.84 = k-means' own luck).
+- Roos's first answer (cell 15) said "99.6% matters, then we can tell the groups apart better". Correction:
+  ARI 1.00 means 300 gives *the same* groups as 384, so the extra precision did not improve anything.
+- **Decision (Roos): keep all 384 dimensions, no PCA before k-means.** Reason: the check shows reducing does not
+  change the groups and the data is small; no extra step, no number to defend. Code already clusters on the
+  full `vectors`, so nothing in the pipeline changed.
+
+### Still open (Roos)
+- [ ] Cell 15's last sentence ("die precieze is belangrijk…") now contradicts the decision: rewrite it in your own words.
+- [ ] Read the ARI line: from how many components are the groups within the 0.84 yardstick? Mention it in the answer?
