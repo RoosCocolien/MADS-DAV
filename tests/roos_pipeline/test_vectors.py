@@ -14,6 +14,8 @@ from roos_pipeline.vectors import (
     WeekStart,
     WordCount,
     cluster_contrast,
+    cluster_keywords,
+    contrast_intervals,
     language_units,
     weekly_cluster_shares,
 )
@@ -104,6 +106,30 @@ def test_contrast_explains_away_a_length_difference():
     assert out["difference"].iloc[0] > 0.1  # raw: French looks more "cluster 0"
     assert np.isclose(out["beyond_strata"].iloc[0], 0, atol=0.03)  # but that is length
     assert out["p"].iloc[0] > 0.3
+
+
+def test_keywords_skip_words_every_cluster_uses():
+    texts = pd.Series(
+        ["the train leaves at nine"] * 5
+        + ["the love of my life"] * 5
+        + ["the end"] * 90
+    )
+    labels = np.array([0] * 5 + [1] * 5 + [2] * 90)
+    out = cluster_keywords(texts, labels, n=2, max_share=0.06)
+    assert "the" not in out[0] + out[1]  # in every unit: no help telling clusters apart
+    assert set(out[0]) <= {"train", "leaves", "nine"}
+    assert set(out[1]) == {"love", "life"}
+
+
+def test_intervals_hold_a_difference_that_every_week_shows():
+    weeks = [contrast_units([0] * 9 + [1], [0] + [1] * 9) for _ in range(6)]
+    for i, week in enumerate(weeks):
+        week["week"] = pd.Timestamp("2024-01-01") + pd.Timedelta(weeks=5 * i)
+    out = contrast_intervals(pd.concat(weeks), n_boot=200, seed=0)
+    # 90% of French vs 10% of English in every week, so every resample gives +80 points.
+    assert np.allclose(
+        out.loc[0, ["difference", "low", "high", "odd_months", "even_months"]], 80
+    )
 
 
 def test_weekly_shares_skip_thin_weeks_and_keep_zeros():

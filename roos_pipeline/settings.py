@@ -39,6 +39,8 @@ MIN_CHARS = 3  # shorter messages ("Ok", one emoji) are no evidence of a languag
 # A reply that quotes an earlier message carries its "[18-12-2025, 09:42:27] Roos: ..."
 # line, so the quoted words count as the sender's (found in roos_05.6, 2026-10-09).
 QUOTED_REPLY_PATTERN = r"\[\d{1,2}-\d{1,2}-\d{4}, "
+# A "word" for the group keywords (6.5): 3+ letters, no digits, so "je", "ok" and "18:51" never count.
+KEYWORD_PATTERN = r"(?u)\b[^\W\d_]{3,}\b"
 
 # --- topics: the roos_03.3 versions (chosen 2026-10-06 over the narrower 01.4 ones) --
 # Three word boundaries added on 2026-10-06, after a test caught false matches on the real

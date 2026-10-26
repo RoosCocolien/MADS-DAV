@@ -7,7 +7,8 @@ Used by `notebooks/lesson6/roos_06.5-louis-fr-vs-en.ipynb`. The steps, in order:
       -> WeekStart             the Monday each message's week starts on
       -> language_units()      grain changes: one row per (session, language), 6.4's unit
       -> WordCount             n_words and a length band per unit
-    -> embed, k-means (in the notebook) -> cluster_contrast() -> the two plot classes
+    -> embed, k-means (in the notebook) -> cluster_keywords() for a first name per cluster
+    -> cluster_contrast() (shuffle test), contrast_intervals() (weeks resampled) -> the plot classes
 
 Every step class is a goad `TransformBase`, like the ones in `features.py`, so it slots
 into `Pipeline.add(...)`. `language_units` and `cluster_contrast` change the grain, so
@@ -21,6 +22,7 @@ import numpy as np
 import pandas as pd
 from goad_toolkit.datatransforms import TransformBase
 from goad_toolkit.visualizer import BasePlot
+from sklearn.feature_extraction.text import CountVectorizer
 
 from roos_pipeline import settings
 from scripts.sessionize import merge_messages, sessionize
@@ -229,6 +231,111 @@ def cluster_examples(
     return examples
 
 
+def cluster_keywords(
+    texts: pd.Series,
+    labels: np.ndarray,
+    n: int = 6,
+    min_units: int = 5,
+    max_share: float = 0.05,
+) -> dict[int, list[str]]:
+    """The words that set each cluster apart from the others.
+
+    Per word: the share of the cluster's units that use it (`inside`) against the share of
+    the other units (`outside`). The score, inside × log(inside / outside), is high for a
+    word that is common in the cluster *and* much more common there than elsewhere.
+
+    Words in more than `max_share` of all units are dropped first. Without that, "the",
+    "you" and "and" topped every English-heavy cluster: they are frequent everywhere, but
+    a cluster with more English simply has more of them. Words of one or two letters and
+    numbers never count.
+
+    A first draft of a name, not the name: read the examples (`cluster_examples`) too.
+
+    Args:
+        texts: one text per unit, in the same order as `labels`.
+        labels: the cluster of each unit.
+        n: words per cluster.
+        min_units: a word must appear in this many units; rarer ones are mostly typos and
+            names, which would otherwise top a small cluster.
+        max_share: words in a larger share of all units are too common to tell clusters apart.
+    """
+    vectorizer = CountVectorizer(
+        token_pattern=settings.KEYWORD_PATTERN,
+        binary=True,
+        min_df=min_units,
+        max_df=max_share,
+    )
+    used = vectorizer.fit_transform(texts.fillna("").str.lower())
+    words = vectorizer.get_feature_names_out()
+    keywords = {}
+    for k in np.sort(np.unique(labels)):
+        inside = np.asarray(used[labels == k].mean(axis=0)).ravel()
+        outside = np.asarray(used[labels != k].mean(axis=0)).ravel()
+        score = inside * np.log((inside + 1e-3) / (outside + 1e-3))
+        keywords[int(k)] = [str(words[i]) for i in np.argsort(-score)[:n]]
+    return keywords
+
+
+def contrast_intervals(
+    units: pd.DataFrame,
+    cluster: str = "cluster",
+    group: str = "language",
+    pair: tuple[str, str] = ("fr", "en"),
+    n_boot: int = 2000,
+    seed: int = settings.SEED,
+) -> pd.DataFrame:
+    """French share − English share per cluster, with how much it moves between weeks.
+
+    Two checks on one number, both in percentage points:
+
+    - a 95% interval from resampling *weeks* (with replacement): the units of one week
+      are not independent (one busy week of planning fills one cluster), so the week,
+      not the unit, is what gets drawn;
+    - the difference in odd and in even months separately: two halves of the data that
+      each run over the whole period. If a cluster's difference is real, both halves show it.
+
+    Returns:
+        One row per cluster: `difference`, `low`, `high`, `odd_months`, `even_months`.
+    """
+    first, second = pair
+    data = units[units[group].isin(pair)].reset_index(drop=True)
+    clusters = np.sort(data[cluster].unique())
+
+    def difference(rows: pd.DataFrame) -> np.ndarray:
+        shares = pd.crosstab(rows[cluster], rows[group], normalize="columns")
+        shares = shares.reindex(index=clusters, columns=list(pair), fill_value=0)
+        return (shares[first] - shares[second]).to_numpy() * 100
+
+    # Per week, units per cluster for each language; a resample is then a weighted sum.
+    weeks = np.sort(data["week"].unique())
+    counts = {
+        lang: pd.crosstab(data.loc[data[group] == lang, "week"], data[cluster])
+        .reindex(index=weeks, columns=clusters, fill_value=0)
+        .to_numpy()
+        for lang in pair
+    }
+    rng = np.random.default_rng(seed)
+    boot = np.empty((n_boot, len(clusters)))
+    for i in range(n_boot):
+        weight = np.bincount(
+            rng.integers(len(weeks), size=len(weeks)), minlength=len(weeks)
+        )
+        a, b = (weight @ counts[lang] for lang in pair)
+        boot[i] = (a / max(a.sum(), 1) - b / max(b.sum(), 1)) * 100
+
+    odd = data["week"].dt.month % 2 == 1
+    return pd.DataFrame(
+        {
+            "difference": difference(data),
+            "low": np.percentile(boot, 2.5, axis=0),
+            "high": np.percentile(boot, 97.5, axis=0),
+            "odd_months": difference(data[odd]),
+            "even_months": difference(data[~odd]),
+        },
+        index=pd.Index(clusters, name=cluster),
+    )
+
+
 # --- plots -------------------------------------------------------------------------
 
 
@@ -275,6 +382,98 @@ class LanguageDumbbellPlot(BasePlot):
         self.ax.set_xlim(0, right * 1.15)
         self.ax.spines[["top", "right"]].set_visible(False)
         self.ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), frameon=False)
+        return self.fig, self.ax
+
+
+class ContrastBarPlot(BasePlot):
+    """One bar per cluster from 0: how many points more of his French than of his
+    English falls in it (left: more in English). Sorted, so the clusters that lean
+    furthest each way sit at the top and bottom.
+
+    On each bar: the 95% interval (weeks resampled) as a line, the odd months as an open
+    dot, the even months as a filled one. Bar, interval and both dots on the same side of
+    0 is a difference that holds; dots on opposite sides is one that half the data does
+    not show. Takes `contrast_intervals`'s frame.
+    """
+
+    def build(
+        self,
+        intervals: pd.DataFrame,
+        names: dict[int, str],
+        pair: tuple[str, str] = ("fr", "en"),
+        colors: dict[str, str] | None = None,
+        pair_labels: dict[str, str] | None = None,
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        colors = colors or {
+            pair[0]: settings.FRENCH_COLOR,
+            pair[1]: settings.ENGLISH_COLOR,
+        }
+        pair_labels = pair_labels or {lang: lang for lang in pair}
+        ordered = intervals.sort_values("difference")
+        y = np.arange(len(ordered))
+        diff = ordered["difference"].to_numpy()
+        self.ax.barh(
+            y,
+            diff,
+            color=[colors[pair[0]] if d > 0 else colors[pair[1]] for d in diff],
+            height=0.65,
+            zorder=1,
+        )
+        self.ax.hlines(
+            y,
+            ordered["low"],
+            ordered["high"],
+            color=settings.DARK_GREY,
+            linewidth=1.5,
+            zorder=2,
+        )
+        self.ax.scatter(
+            ordered["even_months"],
+            y,
+            color=settings.DARK_GREY,
+            s=28,
+            zorder=3,
+            label="even months",
+        )
+        self.ax.scatter(
+            ordered["odd_months"],
+            y,
+            facecolor="white",
+            edgecolor=settings.DARK_GREY,
+            linewidth=1.5,
+            s=40,
+            zorder=4,
+            label="odd months",
+        )
+        self.ax.axvline(0, color=settings.GREY, linewidth=1)
+        self.ax.set_yticks(y, [names.get(k, f"cluster {k}") for k in ordered.index])
+        reach = np.nanmax(
+            np.abs(ordered[["low", "high", "odd_months", "even_months"]].to_numpy())
+        )
+        self.ax.set_xlim(-reach * 1.1, reach * 1.1)
+        self.ax.xaxis.set_major_formatter(lambda x, _: f"{x:+.0f} pts" if x else "0")
+        self.ax.text(
+            -0.04 * reach,
+            len(ordered) - 0.3,
+            f"← more in {pair_labels[pair[1]]}",
+            ha="right",
+            color="dimgray",
+            fontsize=9,
+        )
+        self.ax.text(
+            0.04 * reach,
+            len(ordered) - 0.3,
+            f"more in {pair_labels[pair[0]]} →",
+            ha="left",
+            color="dimgray",
+            fontsize=9,
+        )
+        self.ax.set_ylim(-0.6, len(ordered) + 0.2)
+        self.ax.grid(axis="x", linestyle=":", color=settings.LIGHT_GREY)
+        self.ax.spines[["top", "right", "left"]].set_visible(False)
+        self.ax.legend(loc="lower right", frameon=False)
         return self.fig, self.ax
 
 

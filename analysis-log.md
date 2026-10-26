@@ -1511,3 +1511,35 @@ What changed in the course material:
 ### Still open (Roos)
 - [ ] Cell 15's last sentence ("die precieze is belangrijk…") now contradicts the decision: rewrite it in your own words.
 - [ ] Read the ARI line: from how many components are the groups within the 0.84 yardstick? Mention it in the answer?
+
+## 2026-10-25 (2) — roos_06.5: group names, difference chart, heat map
+
+- `vectors.py`: `cluster_keywords` (distinctive words per group: share of the group's units that use a word vs.
+  the other units; words in > 5% of all units dropped, else "the/you/and" topped every English group),
+  `contrast_intervals` (French − English share in points, 95% interval from resampling weeks, odd vs. even
+  months), `ContrastBarPlot`. 2 new tests; 50 pass.
+- Notebook: working names = first 3 keywords (overrule in `CLUSTER_NAMES`); heat map of cosine similarity
+  between group centres (all 384 dims, diagonal masked); difference bar chart in 6.5.6.
+- First run (K = 6): French side `toi/aussi/bien` +33, `means/merci/aussi` +19; English side
+  `session/yoga/feel` −23, `paris/france/utrecht` −12, `late/leave/arrive` −10, `https/app/colour` −7.
+  Every interval clear of 0, odd and even months agree.
+
+### Still open (Roos)
+- [ ] Both French-leaning groups get French *function words* as keywords (toi, aussi, moi): is k-means partly
+      finding the language again, not the topic? (See "Does the encoder still see the language?")
+- [ ] Read the examples and overrule the working names in `CLUSTER_NAMES`.
+- [ ] `K = 6  # my choice, because: ...` is still empty.
+
+## 2026-10-26 — roos_06.5: language or topic?
+
+- Extended example list per group × language (10 closest to centre + 8 random), scratchpad `group_examples.txt`.
+- Groups are not language-pure: the two French-leaning groups are 62% (2) and 57% (3) French, and the English
+  units in them say the same kind of thing (group 3 EN: "I'm thinking of you", "Good luck for today 🫶🏻").
+- Length runs with the groups: median words EN/FR per group 46/16, 53/13, 19/9, 11/7, 20/11, 17/9. The
+  French-leaning groups are the short ones. `contrast_intervals` (bar chart) does NOT hold length fixed;
+  `cluster_contrast`'s `beyond_strata` does.
+
+### Still open (Roos)
+- [ ] Name the groups on two axes? what it is about + form (short reaction vs. long story).
+- [ ] Compare the bar chart's difference with `beyond_strata` in 6.5.6: how much is left once length is held fixed?
+- [ ] Optional test: subtract each language's mean vector, re-run k-means, adjusted Rand index vs. the current groups.
