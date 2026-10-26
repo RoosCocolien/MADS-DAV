@@ -1543,3 +1543,19 @@ What changed in the course material:
 - [ ] Name the groups on two axes? what it is about + form (short reaction vs. long story).
 - [ ] Compare the bar chart's difference with `beyond_strata` in 6.5.6: how much is left once length is held fixed?
 - [ ] Optional test: subtract each language's mean vector, re-run k-means, adjusted Rand index vs. the current groups.
+
+## 2026-10-26 (2) — roos_06.5: two checks and the report figure (6.5.8, 6.5.9)
+
+- Roos named the groups: Daily talk, Travelling, Short responses, Words of love, Making plans, House and stuff.
+- Check 1 (length & week held, `beyond_strata`): left over 38% / 23% / 74% / 53% / 94% / 140%; all 6 p < 0.05.
+  Words of love +32.6 raw → +17.2 held.
+- Check 2 (each language's mean vector subtracted, k-means again): ARI 0.40 vs. seed yardstick 0.84, so language
+  shaped the groups. Shuffle test on the new groups: 4 of 6 p < 0.05; the love-like group (aussi/moi/merci)
+  +9.0 raw but −0.8 held, p = 0.51. Strict test: it also removes part of any real difference.
+- Report figure: Roos's title, draft subtitle, bigger dots, French on top, group palette without blue/orange,
+  checks + counts as footnote. Language colours in `settings` now blue (French) / vermillion (English).
+
+### Still open (Roos)
+- [ ] Title says "heeft invloed op" (causal). Does the data show influence, or that the two go together?
+- [ ] After check 2 the love difference does not hold: does the title/subtitle still fit your expectation?
+- [ ] Fill in the *Answer:* under check 2.

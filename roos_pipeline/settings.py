@@ -114,8 +114,10 @@ EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MIN_UNIT_WORDS = 4  # shorter units are mostly "hahaha", "merci", "bonne nuit" (6.4)
 LENGTH_BANDS = (8, 20, 40)  # words: 4-8, 9-20, 21-40, 41+ — held fixed by the shuffle
 MIN_UNITS_PER_WEEK = 5  # per language, before a week's share is drawn
-FRENCH_COLOR = "#CC79A7"  # Okabe-Ito reddish purple
-ENGLISH_COLOR = "#009E73"  # Okabe-Ito bluish green
+# Blue against vermillion: the Okabe-Ito pair furthest apart, also for colour-blind eyes. The
+# purple/green pair before (2026-10-26) ran together where thousands of small dots overlap.
+FRENCH_COLOR = "#0072B2"  # Okabe-Ito blue
+ENGLISH_COLOR = "#D55E00"  # Okabe-Ito vermillion
 
 # --- statistics --------------------------------------------------------------------
 
