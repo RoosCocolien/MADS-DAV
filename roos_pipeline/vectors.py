@@ -9,6 +9,8 @@ Used by `notebooks/lesson6/roos_06.5-louis-fr-vs-en.ipynb`. The steps, in order:
       -> WordCount             n_words and a length band per unit
     -> embed, k-means (in the notebook) -> cluster_keywords() for a first name per cluster
     -> cluster_contrast() (shuffle test), contrast_intervals() (weeks resampled) -> the plot classes
+    -> topic_labels()          6.5.10: a topic per unit from word lists, apart from the encoder;
+                               neighbour_agreement() checks it against the vectors
 
 Every step class is a goad `TransformBase`, like the ones in `features.py`, so it slots
 into `Pipeline.add(...)`. `language_units` and `cluster_contrast` change the grain, so
@@ -25,6 +27,7 @@ from goad_toolkit.visualizer import BasePlot
 from sklearn.feature_extraction.text import CountVectorizer
 
 from roos_pipeline import settings
+from roos_pipeline.features import normalise
 from scripts.sessionize import merge_messages, sessionize
 
 
@@ -336,6 +339,72 @@ def contrast_intervals(
     )
 
 
+def topic_labels(
+    texts: pd.Series,
+    terms: dict[str, tuple[str, ...]] = settings.UNIT_TOPIC_TERMS,
+    both: str = "both",
+    none: str = "other",
+) -> pd.Series:
+    """One topic per unit from word lists, without the encoder: the colour route of 6.5.10.
+
+    A unit with a term from exactly one list gets that list's name, with terms from two
+    lists `both`, with none `none`. Matched on `normalise`d text, so the terms are written
+    without accents.
+    """
+    normalised = texts.fillna("").map(normalise)
+    hits = pd.DataFrame(
+        {
+            name: normalised.str.contains("|".join(f"(?:{t})" for t in patterns))
+            for name, patterns in terms.items()
+        }
+    )
+    labels = pd.Series(none, index=texts.index)
+    n_hits = hits.sum(axis=1)
+    for name in terms:
+        labels[hits[name] & (n_hits == 1)] = name
+    labels[n_hits > 1] = both
+    return labels
+
+
+def topic_term_counts(
+    texts: pd.Series,
+    groups: pd.Series,
+    terms: tuple[str, ...],
+) -> pd.DataFrame:
+    """Per term, in how many units of each group (language) it fires: a list that only
+    fires in one language measures the list, not Louis."""
+    normalised = texts.fillna("").map(normalise)
+    counts = {t: normalised.str.contains(t).groupby(groups).sum() for t in terms}
+    return pd.DataFrame(counts).T.rename_axis("term")
+
+
+def neighbour_agreement(
+    vectors: np.ndarray,
+    labels: np.ndarray,
+    k: int = 15,
+) -> pd.DataFrame:
+    """Does the encoder put units with the same topic near each other, in all dimensions?
+
+    Per topic: of each unit's `k` nearest neighbours (cosine), the share with the same
+    topic, against the share that topic has overall. A share well above the base rate:
+    the position (encoder) and the colour (word lists) agree. Near it: they do not.
+    """
+    unit = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+    similarity = unit @ unit.T
+    np.fill_diagonal(similarity, -np.inf)  # a unit is not its own neighbour
+    nearest = np.argpartition(-similarity, k, axis=1)[:, :k]
+    same = labels[nearest] == labels[:, None]
+    topics = np.unique(labels)
+    return pd.DataFrame(
+        {
+            "units": [(labels == t).sum() for t in topics],
+            "neighbours_same": [same[labels == t].mean() for t in topics],
+            "base_rate": [(labels == t).mean() for t in topics],
+        },
+        index=pd.Index(topics, name="topic"),
+    ).assign(lift=lambda d: d["neighbours_same"] / d["base_rate"])
+
+
 # --- plots -------------------------------------------------------------------------
 
 
@@ -475,6 +544,171 @@ class ContrastBarPlot(BasePlot):
         self.ax.spines[["top", "right", "left"]].set_visible(False)
         self.ax.legend(loc="lower right", frameon=False)
         return self.fig, self.ax
+
+
+CORNERS = {
+    # corner: (x, y, ha, va) in axes fractions, and an arrow from that corner into the cloud
+    "upper left": (0.02, 0.97, "left", "top", "↘"),
+    "upper right": (0.98, 0.97, "right", "top", "↙"),
+    "lower left": (0.02, 0.03, "left", "bottom", "↗"),
+    "lower right": (0.98, 0.03, "right", "bottom", "↖"),
+}
+
+
+def corner_note(ax, corner: str, text: str, color: str, fontsize: int = 11) -> None:
+    """Text in a corner of a map, with an arrow pointing from that corner into the cloud."""
+    x, y, ha, va, arrow = CORNERS[corner]
+    ax.text(
+        x,
+        y,
+        f"{arrow} {text}",
+        transform=ax.transAxes,
+        ha=ha,
+        va=va,
+        fontsize=fontsize,
+        fontweight="bold",
+        color=color,
+        bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "none", "pad": 1.5},
+    )
+
+
+class ReportMapPanels(BasePlot):
+    """One panel per language, built to carry one share: how much of each language is `focus`.
+
+    All of a language's units in light grey, the `context` topics small and faded, the
+    `focus` topic large on top, and the focus share as a big number in the panel. Shared
+    axes (`extent`) and no tick labels: a projection's units mean nothing. Call with
+    `n_plots=len(pair)`.
+    """
+
+    def build(
+        self,
+        coordinates: np.ndarray,
+        topics: np.ndarray,
+        languages: np.ndarray,
+        focus: str = "love",
+        context: tuple[str, ...] = ("planning",),
+        pair: tuple[str, str] = ("fr", "en"),
+        pair_labels: dict[str, str] | None = None,
+        colors: dict[str, str] = settings.TOPIC_COLORS,
+        extent: np.ndarray | None = None,
+        notes: dict[str, tuple[str, str]] | None = None,
+    ):
+        if self.fig is None:
+            raise ValueError("create_figure() must run before build()")
+        axes = [ax for ax in self.fig.axes if ax.get_visible()]
+        if len(axes) != len(pair):
+            raise ValueError(f"{len(pair)} languages need n_plots={len(pair)}")
+        pair_labels = pair_labels or {lang: lang for lang in pair}
+        notes = notes or {}
+        extent = coordinates if extent is None else extent
+        pad = 0.03 * np.ptp(extent, axis=0)
+        low, high = extent.min(axis=0) - pad, extent.max(axis=0) + pad
+        for ax, lang in zip(axes, pair):
+            mine = languages == lang
+            ax.scatter(
+                *coordinates[mine].T, s=7, color=settings.LIGHT_GREY, linewidth=0
+            )
+            for topic in context:
+                hit = mine & (topics == topic)
+                ax.scatter(
+                    *coordinates[hit].T,
+                    s=12,
+                    color=colors[topic],
+                    alpha=0.45,
+                    linewidth=0,
+                )
+            hit = mine & (topics == focus)
+            ax.scatter(
+                *coordinates[hit].T, s=34, color=colors[focus], alpha=0.9, linewidth=0
+            )
+            ax.text(
+                0.98,
+                0.97,
+                f"{hit.sum() / max(mine.sum(), 1):.0%}",
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=38,
+                fontweight="bold",
+                color=colors[focus],
+            )
+            for topic, (corner, text) in notes.items():
+                corner_note(ax, corner, text, color=colors[topic])
+            ax.set_title(
+                f"{pair_labels[lang]}: {hit.sum():,} van {mine.sum():,} units",
+                fontsize=12,
+            )
+            ax.set_xlim(low[0], high[0])
+            ax.set_ylim(low[1], high[1])
+            ax.set_xticks([])
+            ax.set_yticks([])
+        return self.fig, axes
+
+
+class TopicMapPanels(BasePlot):
+    """A projection as small multiples: one topic × one language per panel.
+
+    Every panel shows all of that language's units in light grey and only one topic's
+    units in colour on top, so a topic's place in the cloud is not hidden under the other
+    topics or the other language. Rows are topics, columns languages; all panels share
+    the same axes, so "lower right" means the same place everywhere. Call with
+    `n_plots=len(topics) * len(pair)` and `max_cols=len(pair)`.
+    """
+
+    def build(
+        self,
+        coordinates: np.ndarray,
+        topics: np.ndarray,
+        languages: np.ndarray,
+        show: tuple[str, ...] = ("love", "planning"),
+        pair: tuple[str, str] = ("fr", "en"),
+        names: dict[str, str] | None = None,
+        pair_labels: dict[str, str] | None = None,
+        colors: dict[str, str] = settings.TOPIC_COLORS,
+        extent: np.ndarray | None = None,
+        notes: dict[str, tuple[str, str]] | None = None,
+    ):
+        """`extent`: the coordinates the axis limits come from (default: `coordinates`). Pass
+        the full set when drawing a subset, so two maps of different subsets line up.
+
+        `notes`: per topic a (corner, text) pair, e.g. {"love": ("lower right", "vooral
+        liefde")}, written in that corner of the topic's panels in the topic's colour. An
+        observation about where the dots lean, not a name for the axis."""
+        notes = notes or {}
+        if self.fig is None:
+            raise ValueError("create_figure() must run before build()")
+        axes = [ax for ax in self.fig.axes if ax.get_visible()]
+        if len(axes) != len(show) * len(pair):
+            raise ValueError(
+                f"{len(show)} topics × {len(pair)} languages need n_plots={len(show) * len(pair)}"
+            )
+        names = names or {t: t for t in show}
+        pair_labels = pair_labels or {lang: lang for lang in pair}
+        extent = coordinates if extent is None else extent
+        pad = 0.03 * np.ptp(extent, axis=0)
+        low, high = extent.min(axis=0) - pad, extent.max(axis=0) + pad
+        for ax, (topic, lang) in zip(axes, [(t, lang) for t in show for lang in pair]):
+            mine = languages == lang
+            hit = mine & (topics == topic)
+            ax.scatter(
+                *coordinates[mine].T, s=7, color=settings.LIGHT_GREY, linewidth=0
+            )
+            ax.scatter(
+                *coordinates[hit].T, s=24, color=colors[topic], alpha=0.85, linewidth=0
+            )
+            if topic in notes:
+                corner_note(ax, *notes[topic], color=colors[topic])
+            ax.set_title(
+                f"{names[topic]}, {pair_labels[lang]}: {hit.sum():,} van {mine.sum():,} units "
+                f"({hit.sum() / max(mine.sum(), 1):.0%})",
+                fontsize=10,
+            )
+            ax.set_xlim(low[0], high[0])
+            ax.set_ylim(low[1], high[1])
+            ax.set_xticks([])
+            ax.set_yticks([])
+        return self.fig, axes
 
 
 class WeeklyLanguagePanels(BasePlot):

@@ -1559,3 +1559,158 @@ What changed in the course material:
 - [ ] Title says "heeft invloed op" (causal). Does the data show influence, or that the two go together?
 - [ ] After check 2 the love difference does not hold: does the title/subtitle still fit your expectation?
 - [ ] Fill in the *Answer:* under check 2.
+
+## 2026-10-30 — roos_06.5: teacher's feedback on 6.5.9 — colour and position from two routes
+
+**Feedback (docent):** k-means on what? k-means always finds K groups; why 6? Colour should come from a route
+apart from the vectorizer (topic labels), position from the encoder.
+
+**Decision (Roos):** two topics from word lists (regex), not from k-means: *love* (incl. encouragement and
+compliments) and *planning* (travel, times, cities, house, cleaning, interior); *both* and *other* (grey).
+Roos gave the French seed terms (mon chérie, mon amour, je t'aime, je pense (très fort) à toi, courage,
+je crois en toi, kiffe); she will add what's missing.
+
+**Done (Claude):** `settings.LOVE_TERMS` / `PLANNING_TERMS` (one regex per term, on normalised text) +
+`TOPIC_COLORS`; `vectors.topic_labels`, `topic_term_counts`, `neighbour_agreement` (+3 tests); new §6.5.10:
+labels, term counts per language, random samples, PCA map split French/English coloured by topic, kNN
+agreement in 384 dims, dumbbell + shuffle test (week × length band) on the topics, answer prompts.
+Terms added from counting Louis's units: tu me manques, hâte de te voir, fais de beaux rêves, ma belle,
+t'es la meilleure, trop forte, fier de toi, bravo, bisous / miss you, looking forward to see you, sweet dreams,
+proud of you, well done, good luck, hugs, kiss; emoji 😘🫶💛🧡❤️💪👏🍀. Left out after reading units: love,
+cute, beautiful, avec toi/with you, bonne nuit/good night, tomorrow/demain, French "car", book.
+First counts: love fr 22.7% / en 12.4%; planning fr 9.8% / en 25.1%; both en 10.2% (long units).
+
+### Still open (Roos)
+- [ ] Check the term counts and 6 samples per topic; add/drop terms (e.g. `kiff` = "enjoy", 💪, cities).
+- [ ] Length: English units are longer, so more term hits; how much is left after `beyond_strata`?
+- [ ] Decide what replaces 6.5.9 in the report, and its title; what happens to the k-means sections.
+
+## 2026-10-30 (2) — roos_06.5: Roos's decisions on the word lists; clearer map; before/after the move
+
+**Decisions (Roos):**
+- "courage" and "bonne chance" are the French "good luck" (both were already in `LOVE_TERMS`).
+- "It's raining in Paris" may count as planning (weather changes plans); a running time counts as
+  sports planning. Cities and times stay in `PLANNING_TERMS`.
+- k-means stays in the notebook as exploration, but leaves the report.
+- Why regex (her words, now in the notebook under 6.5.10): groups made beforehand, so she can check
+  whether they lie together as vectors or are spread out; k-means always finds x groups.
+
+**Done (Claude):** `vectors.TopicMapPanels` (2 × 2 small multiples: topic × language, one topic in colour
+over all units of that language in grey, shared axes). Cell 25 now uses it, with the shuffle-test outcome
+for love and planning printed under the map (`result_line`). New cell: the same map per period, up to the
+move (`MOVE_DATE`) and from the move to Benji, with its own shuffle test per period.
+Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348 en.
+
+### Still open (Roos)
+- [ ] Answer "What I see" 1–5 in 6.5.10, incl. before vs. after the move.
+- [ ] Title of the report figure.
+
+## 2026-10-30 (3) — roos_06.5: report map "tot de verhuizing", axis names checked
+
+- Roos asked for bigger dots, the neighbour check and "groups made by regex" under the map, and names
+  for the axes: "liefdesberichtjes" lower right, "planningsberichtjes" upper left.
+- Checked first (spearman, all units): PC1 = mostly length (−0.50) and French (+0.53), love only +0.16,
+  planning −0.28; PC2 planning +0.26, love −0.24, length +0.20. So the x-axis is *not* a love axis.
+- Done: axis labels from those signs ("← langere, vaker Engelse · kortere, vaker Franse →",
+  "← iets vaker liefde · iets vaker planning →"); Roos's corner notes as "hier vooral …" (placed from the
+  signs, so they follow a PCA flip); dots s=24; under the map: shuffle result, neighbour check per period
+  (before the move: love 45% vs 16% chance, 2.8×; planning 41% vs 21%, 1.9×), regex + axes + data notes.
+
+### Still open (Roos)
+- [ ] Claim wording: "groter deel van zijn Franse units is liefdevol" vs. "hij gebruikt Frans om liefde te uiten".
+- [ ] Love lies right partly because love units are short (x = length): how to say that in the report?
+
+## 2026-10-30 (4) — lesson 7: roos_ copies, 07.1 "Your turn" with two people
+
+- Copied 07.1, 07.2, 07.3 to `roos_07.x` (copied from the working tree, so 07.1 includes the outputs
+  from running the teacher notebook in place).
+- Roos noticed the teacher graph shows 4 people: `Louis Ancien`, `~Louis Chessé` and `Louis` are one
+  person. **Done (Claude):** in `roos_07.1` under "Your turn", merged them with `CanonicalAuthor` +
+  `config.toml` aliases (same as pipeline stage 1) and built the graph at 30 s, 60 s and 30 min.
+- Result: at every window 2 nodes, 1 edge, degree 1 each; only the counts move
+  (Roos-after-Louis / Louis-after-Roos: 8,075 / 8,929 at 30 s; 15,328 / 17,055 at 60 s;
+  143,087 / 152,916 at 30 min).
+- Found: `GraphBuilder.add_edges` writes both directions onto one undirected edge, so the stored
+  `weight` is only one direction's count (whichever is added last). Directed counts come from
+  `builder.analyzer.edges` instead.
+
+### Still open (Roos)
+- [ ] Answer the three questions in the `roos05` cell (centrality with 2 nodes; what 30 min adds over
+      60 s; which edge the unmerged graph drew between "two" people who are one).
+
+## 2026-10-30 (5) — lesson 7 explained (07.1–07.3)
+
+- Roos asked for a plain-Dutch explanation of the three lesson 7 notebooks; given in chat
+  (edge rule = the decision; centrality only means something within one graph and must be checked
+  against the message count; clusters only count after a null model + stability check).
+- Paused: fixing type errors in `roos_06.5` and possibly splitting it in two (VS Code currently
+  shows no diagnostics for it; to be picked up again).
+
+### Still open (Roos)
+- [ ] Check questions from the explanation: what the edge rule means in a two-person chat, and which
+      lesson 7 measures still say anything there.
+
+## 2026-10-30 (4) — roos_06.5: corners with length held; each language's own cloud (6.5.11)
+
+- Corner check (long-distance, within language × length band, topic median minus rest): love sits
+  *lower* in 7 of 8 bands (−0.07…−0.18; French 41+ the exception, few units), *right* only +0.02…+0.09
+  → "lower" is topic, "right" is mostly length/French. Planning sits *higher* in all 8 (+0.08…+0.25),
+  left in 6 of 8.
+- Note for Roos: planning 25% vs 8% looks biggest, but only −4.3 of −16.8 points survives length & week;
+  love +9.1 of +12.7 does. Love is the sturdier finding.
+- 6.5.11: PCA per language (long-distance). One cloud each, no clumps. French: 2 comps 14%, 90% needs 99,
+  median cosine 0.36; y-axis = love (+0.41). English: 9%, 118, cosine 0.22; y-axis = planning (+0.38)
+  and length (+0.35).
+
+### Still open (Roos)
+- [ ] Answer "What the two clouds say" (6.5.11) and the corner question in her own words.
+- [ ] Report: map + dumbbell, or one of them? Lead with love or planning?
+
+## 2026-10-30 (5) — roos_06.5: report figure "Frans is de taal van de liefde" (6.5.12)
+
+- Roos's asks: title "Frans is de taal van de liefde", subtitle chosen by Claude (computed from the long-distance
+  shuffle test: 26% vs 13%, +9 pts held, p < 0.001), 2 panels focused on love, no axis descriptions, corner
+  notes without "hier vooral": "↘ planningsberichtjes" (upper left), "↖ liefdesberichtjes" (lower right);
+  arrows follow the corner (`vectors.corner_note`), so they stay right if PCA flips.
+- `vectors.ReportMapPanels`: per language, love large on top, planning small and faded, big share number;
+  legend + footnote (regex groups, neighbour check 45% vs 16%, PCA 10%, data). Long-distance only.
+- Axis descriptions also removed from the exploratory maps (6.5.10); the spearman table stays.
+- Discussed: x-axis = mostly length (−0.50) and French (+0.53). What the encoder adds when counting already
+  gives the shares: validation of the regex groups (neighbour check), not the share itself.
+
+### Still open (Roos)
+- [ ] Report: is the map the main figure, or the dumbbell with the map as a check? (see the encoder question)
+
+## 2026-10-30 (6) — roos_07.4: places that come up on the same day (network on a time axis)
+
+- Roos's design: nodes = places (cities + Corsica), edge = both came up on the same day, dot size =
+  days mentioned, colour = France / Netherlands / elsewhere, x = months + years, grey = pregnancy.
+  Viz 1 all places, viz 2 clutter reduced (place ≥ 10 days, link ≥ 5 days, ≤ 3 links per place,
+  Corsica always kept), viz 3 a longer period.
+- Choices Claude made that Roos should check: viz 1+2 = long distance (12 Aug 2023 – move 1 Nov 2024),
+  viz 3 = to Benji's birth; x of a dot = **median** day of its place; y = only the country band;
+  viz 3 uses the reduced rules; "≤ 3 links" read strictly (top 3 of *both* places).
+- New: `roos_pipeline/places.py` (`UnmergeMessages`, `place_days`, `place_graph`, `prune`,
+  `lane_layout`, `TimelineGraphPlot`), hand-made `settings.PLACES` (114 places found), tests in
+  `tests/roos_pipeline/test_places.py` (60 passed).
+- Found: 409 embedded "[dd-mm-yyyy, …] Name:" headers carry another day than their row; split back
+  into own messages (63,436 rows → 71,368 messages).
+- Numbers (long distance): 90 places, 548 links, density 0.14, 63% of links rest on one day.
+  Reduced: 16 places, 6 links (the looser "top 3 of one place" keeps 35). Corsica: 9 days, 0 links.
+- **Expectation not supported:** place-days per month 70.9 before the pregnancy, 67.0 in its first
+  months (still long distance), 25.0 after the move, 15.9 after Benji. The drop comes with the move
+  (Nov 2024), not with the pregnancy (Aug 2024). Title "cities stop during the pregnancy" doesn't hold.
+
+### Still open (Roos)
+- [ ] Answer 7.4.8 in her own words (edge rule, one number, nodes, median vs first day, rule 3, title).
+- [ ] Corte/Piana/Vizzavona inside "Corsica" or separate?
+
+## 2026-10-30 (7) — roos_07.4: rule 3 loosened, plots simplified (Roos's asks)
+
+- Rule 3 now: a link stays if it is in the top 3 of *one* of its places (was: both). Plus rule 4,
+  "nobody alone": a place without links gets back its strongest one, even below 5 days
+  (Corsica → Paris 4 days, Terschelling → Paris 4 days). Ties go to the place with more days.
+- Long distance: 16 places, 37 links, one connected piece (strict version: 6 links, 11 alone).
+  Longer period: 18 places, 41 links. Paris now has 15 links, Utrecht 11, Amsterdam 10.
+- Plots: no country names on the y-axis, x-axis "Sep 23, Nov 23, ..." (every two months), size
+  legend removed (only the country colours + pregnancy). 61 tests pass.

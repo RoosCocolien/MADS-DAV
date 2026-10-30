@@ -17,6 +17,8 @@ from roos_pipeline.vectors import (
     cluster_keywords,
     contrast_intervals,
     language_units,
+    neighbour_agreement,
+    topic_labels,
     weekly_cluster_shares,
 )
 
@@ -138,3 +140,37 @@ def test_weekly_shares_skip_thin_weeks_and_keep_zeros():
     # English has 1 unit that week: left out. French: 3/5 in cluster 0, 2/5 in cluster 1.
     assert set(out["language"]) == {"fr"}
     assert out.set_index("cluster")["share"].to_dict() == {0: 0.6, 1: 0.4}
+
+
+def test_topic_labels_ignore_accents_and_mark_both():
+    texts = pd.Series(
+        [
+            "Je pense très fort à toi",
+            "My train leaves at 18:30",
+            "Good luck, the train is late",
+            "Hahaha ok",
+            None,
+        ]
+    )
+    out = topic_labels(texts)
+    assert out.tolist() == ["love", "planning", "both", "other", "other"]
+
+
+def test_topic_labels_skip_french_car():
+    # French "car" means "because", not a car.
+    assert topic_labels(
+        pd.Series(["c'est bien car tu es là", "I took the car"])
+    ).tolist() == [
+        "other",
+        "planning",
+    ]
+
+
+def test_neighbours_agree_when_topics_sit_apart():
+    rng = np.random.default_rng(0)
+    vectors = np.vstack(
+        [rng.normal([5, 0], 0.1, (10, 2)), rng.normal([0, 5], 0.1, (10, 2))]
+    )
+    out = neighbour_agreement(vectors, np.array(["love"] * 10 + ["planning"] * 10), k=5)
+    assert out["neighbours_same"].tolist() == [1.0, 1.0]
+    assert np.allclose(out["lift"], 2.0)
