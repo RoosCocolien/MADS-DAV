@@ -12,6 +12,11 @@ Used by `notebooks/lesson7/roos_07.4-your-turn.ipynb`. The steps, in order:
       -> lane_layout()         x = the place's median day, y = a lane in its country's band
     -> TimelineGraphPlot
 
+Without a time axis (feedback on 7.4.5, 2026-11-03), the same graph goes:
+
+      -> circle_layout()       a circle, one arc per country, biggest place first
+    -> GraphPlot               optionally coloured by author_shares() + who_names()
+
 The edge rule is 07.1's "who was nearby" with a whole day as the window, on places
 instead of people. Every count is in *days*, never in messages: ten messages planning one
 train to Marseille are one day of Marseille.
@@ -20,6 +25,7 @@ train to Marseille are one day of Marseille.
 from __future__ import annotations
 
 import re
+import textwrap
 
 import matplotlib.dates as mdates
 import networkx as nx
@@ -91,6 +97,41 @@ def place_days(
         .sort_values(["day", "place"])
         .reset_index(drop=True)[columns]
     )
+
+
+def author_shares(
+    messages: pd.DataFrame,
+    places: dict[str, tuple[str, str]] = settings.PLACES,
+    authors: tuple[str, str] = ("Roos", "Louis"),
+) -> pd.DataFrame:
+    """Per place: on how many days each author named it, and the first author's share.
+
+    Counted in days, like everything else: a day on which both named Paris counts once for
+    each. `share` is first / (first + second), so 0.5 means they named it equally often.
+    Authors must already be canonical: `UnmergeMessages` brings back old display names.
+    """
+    counts = {
+        author: place_days(messages[messages["author"] == author], places)
+        .groupby("place")
+        .size()
+        for author in authors
+    }
+    out = pd.DataFrame(counts).fillna(0).astype(int)
+    out["share"] = out[authors[0]] / (out[authors[0]] + out[authors[1]])
+    return out
+
+
+def who_names(
+    share: float,
+    low: float = settings.SHARED_LOW,
+    high: float = settings.SHARED_HIGH,
+) -> str:
+    """ "Roos" at `high` or more of the days, "Louis" at `low` or less, else "shared"."""
+    if share >= high:
+        return "Roos"
+    if share <= low:
+        return "Louis"
+    return "shared"
 
 
 def place_graph(days: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp) -> nx.Graph:
@@ -216,6 +257,43 @@ def lane_layout(
     return pos
 
 
+def circle_layout(
+    graph: nx.Graph,
+    countries: tuple[str, ...] = ("Netherlands", "Elsewhere", "France"),
+    gap: float = 1.0,
+    attr: str = "country",
+) -> dict[str, tuple[float, float]]:
+    """Places on a circle, one arc per country, clockwise from the top in `countries` order.
+
+    The Netherlands run down the right from the top, biggest first; France comes back up
+    the left and ends with its biggest at the top, so the two biggest hubs sit side by side
+    at the top. `gap` empty slots separate the countries. `attr` names the node attribute
+    the groups come from (the people graph uses "side": Roos, shared, Louis). **The position says the country
+    and nothing else**: not where a place is, not when it came up.
+    """
+    groups = []
+    for country in countries:
+        members = sorted(
+            (n for n, d in graph.nodes(data=True) if d[attr] == country),
+            key=lambda n: (-graph.nodes[n]["days"], n),
+        )
+        if country == countries[-1]:
+            members.reverse()  # the last arc climbs back to the top
+        if members:
+            groups.append(members)
+    slots = sum(len(g) for g in groups) + gap * len(groups)
+    step = 2 * np.pi / slots
+    pos = {}
+    # the first and the last place sit symmetric around the top, one gap apart
+    angle = np.pi / 2 - step * (gap + 1) / 2
+    for members in groups:
+        for node in members:
+            pos[node] = (float(np.cos(angle)), float(np.sin(angle)))
+            angle -= step
+        angle -= step * gap
+    return pos
+
+
 # --- plots -------------------------------------------------------------------------
 
 
@@ -333,4 +411,129 @@ class TimelineGraphPlot(BasePlot):
             frameon=False,
             labelspacing=1.2,
         )
+        return self.fig, ax
+
+
+class GraphPlot(BasePlot):
+    """The place network without a time axis: dots are places, lines are shared days.
+
+    A dot's area is proportional to the days its place came up; a line's width and
+    darkness grow with the days the two places came up together, the heaviest getting
+    `max_width` points. `colors` maps each place to its colour and `legend` each legend
+    label to a colour, so the same plot can colour by country or by who names a place.
+    Names sit outside the circle, and `caption` is printed under the plot: the feedback
+    on 7.4.5 was that nobody could tell what a line or its width meant. The nodes in
+    `marked` get a dark ring and a bold name, with `marked_label` in the legend (not
+    "highlight": `BasePlot.plot` takes that keyword as a `PlotSettings` field).
+    """
+
+    def build(
+        self,
+        graph: nx.Graph,
+        pos: dict[str, tuple[float, float]],
+        colors: dict[str, str],
+        legend: dict[str, str],
+        caption: str | None = None,
+        size_per_day: float = 6.0,
+        max_width: float = 10.0,
+        caption_width: int = 110,
+        marked: tuple[str, ...] = (),
+        marked_label: str = "",
+    ):
+        if self.ax is None:
+            raise ValueError("create_figure() must run before build()")
+        ax = self.ax
+
+        heaviest = max((w for _, _, w in graph.edges(data="weight")), default=1)
+        for u, v, w in sorted(graph.edges(data="weight"), key=lambda e: e[2]):
+            ax.add_patch(
+                FancyArrowPatch(
+                    pos[u],
+                    pos[v],
+                    arrowstyle="-",
+                    linewidth=0.4 + (max_width - 0.4) * w / heaviest,
+                    color=settings.GREY,
+                    alpha=0.15 + 0.5 * w / heaviest,
+                    zorder=1,
+                )
+            )
+
+        nodes = list(graph.nodes(data=True))
+        ax.scatter(
+            [pos[n][0] for n, _ in nodes],
+            [pos[n][1] for n, _ in nodes],
+            s=[d["days"] * size_per_day for _, d in nodes],
+            c=[colors[n] for n, _ in nodes],
+            edgecolors="white",
+            linewidths=0.8,
+            alpha=0.9,
+            zorder=2,
+        )
+        rings = [n for n in marked if n in graph]
+        ax.scatter(
+            [pos[n][0] for n in rings],
+            [pos[n][1] for n in rings],
+            s=[graph.nodes[n]["days"] * size_per_day for n in rings],
+            facecolors="none",
+            edgecolors=settings.DARK_GREY,
+            linewidths=2.5,
+            zorder=2.5,
+        )
+        for node, data in nodes:
+            x, y = pos[node]
+            # pushed outward from the centre, past the edge of the dot
+            radius = np.sqrt(data["days"] * size_per_day) / 2 + 3
+            ax.annotate(
+                node,
+                (x, y),
+                xytext=(x * radius, y * radius),
+                textcoords="offset points",
+                ha="left" if x > 0.05 else "right" if x < -0.05 else "center",
+                va="bottom" if y > 0.05 else "top" if y < -0.05 else "center",
+                fontsize=9,
+                fontweight="bold" if node in rings else "normal",
+                color=settings.DARK_GREY,
+                zorder=3,
+            )
+
+        ax.set_xlim(-1.35, 1.35)
+        ax.set_ylim(-1.2, 1.2)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        handles: list[Artist] = [
+            Line2D([], [], marker="o", ls="", color=c, markersize=8, label=label)
+            for label, c in legend.items()
+        ]
+        if rings:
+            handles.append(
+                Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    ls="",
+                    markerfacecolor="none",
+                    markeredgecolor=settings.DARK_GREY,
+                    markeredgewidth=2,
+                    markersize=10,
+                    label=marked_label,
+                )
+            )
+        ax.legend(
+            handles=handles,
+            loc="upper left",
+            bbox_to_anchor=(1.0, 1.0),
+            frameon=False,
+            labelspacing=1.2,
+        )
+        if caption is not None:
+            ax.text(
+                0.5,
+                -0.02,
+                textwrap.fill(caption, caption_width),
+                transform=ax.transAxes,
+                ha="center",
+                va="top",
+                fontsize=9,
+                color=settings.DARK_GREY,
+            )
         return self.fig, ax

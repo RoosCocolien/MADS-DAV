@@ -7,10 +7,13 @@ import pandas as pd
 
 from roos_pipeline.places import (
     UnmergeMessages,
+    author_shares,
+    circle_layout,
     lane_layout,
     place_days,
     place_graph,
     prune,
+    who_names,
 )
 
 PLACES = {
@@ -141,3 +144,47 @@ def test_a_big_place_also_claims_the_lanes_next_to_it():
     graph.nodes["hub"]["days"] = 200
     pos = lane_layout(graph, countries=["France"], lane_height=1.0, big_days=60)
     assert sorted(abs(y) for n, (_, y) in pos.items() if n != "hub")[0] == 2
+
+
+def test_author_share_counts_days_per_person_and_a_shared_day_for_both():
+    data = pd.DataFrame(
+        {
+            "ts_local": pd.to_datetime(
+                [
+                    "2024-01-01 09:00",
+                    "2024-01-01 10:00",
+                    "2024-01-01 11:00",
+                    "2024-01-02 09:00",
+                ]
+            ),
+            "author": ["Roos", "Roos", "Louis", "Roos"],
+            "message": ["Paris", "Paris again", "Paris", "Paris"],
+        }
+    )
+    shares = author_shares(data, places=PLACES)
+    assert (shares.loc["Paris", "Roos"], shares.loc["Paris", "Louis"]) == (2, 1)
+    assert shares.loc["Paris", "share"] == 2 / 3
+
+
+def test_who_names_includes_both_boundaries_on_the_owners_side():
+    assert who_names(0.6) == "Roos"
+    assert who_names(0.4) == "Louis"
+    assert [who_names(s) for s in (0.41, 0.5, 0.59)] == ["shared"] * 3
+
+
+def test_circle_puts_the_two_biggest_hubs_at_the_top_and_countries_on_their_side():
+    graph = nx.Graph()
+    for name, country, days in [
+        ("Paris", "France", 50),
+        ("Corsica", "France", 5),
+        ("Utrecht", "Netherlands", 60),
+        ("Gouda", "Netherlands", 7),
+        ("Basel", "Elsewhere", 9),
+    ]:
+        graph.add_node(name, country=country, days=days)
+    pos = circle_layout(graph)
+    assert pos["Utrecht"][0] > 0 > pos["Paris"][0]  # right and left of the top
+    assert min(pos["Utrecht"][1], pos["Paris"][1]) > max(
+        pos[n][1] for n in ("Corsica", "Gouda", "Basel")
+    )
+    assert pos["Basel"][1] < 0  # elsewhere at the bottom

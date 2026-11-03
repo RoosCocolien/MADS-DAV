@@ -1748,3 +1748,104 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
 - [ ] Kiezen: welke boodschap(pen) gaan het verslag in, en welk plaatje hoort bij elk?
 - [ ] Barchart maken en eigen titel schrijven (cel 52 heeft nog `TITLE: write your own claim`).
 - [ ] t-SNE: wel/niet, en zo ja: welke perplexities vergelijk je, en wat zou je moeten zien?
+
+## 2026-11-03 (3) — roos_07.4 §7.4.5: docent-feedback op het netwerk, tijdas eruit
+
+- Feedback (docent): de tijdas onder een netwerk verwart ("was je alleen in maart 2024 in
+  Parijs?"); onduidelijk wat een lijn en de dikte betekenen; welk verhaal vertel je; wat is
+  geteld? Roos's beslissingen: tijdas weg, titel "De geografische kaart tijdens onze
+  langeafstandsrelatie", tekst onder het plaatje over de lijndikte; layout = **landen-cirkel**
+  (gekozen boven echte lat/lon-kaart en spring-layout).
+- Gebouwd: `circle_layout` (NL rechts, Frankrijk links, elders onder, grootste boven, Paris en
+  Utrecht naast elkaar), `GraphPlot` (netwerk zonder tijdas, bijschrift onder het plaatje),
+  `author_shares` + `who_names` (wie noemt een plek, in dagen per persoon), drempels/kleuren in
+  `settings` (`SHARED_LOW/HIGH` 0.40/0.60, Okabe-Ito paars = Roos, groen = Louis, grijs = gedeeld).
+  3 nieuwe tests; 64 passed.
+- Notebook: §7.4.5 nu de cirkel + `how_to_read`-bijschrift (dikste lijn Utrecht–Paris 104
+  dagen); nieuw §7.4.8 hele relatie (22 plekken, 49 lijnen; Paris–Utrecht 116 dagen), §7.4.9 wie
+  noemt welke plek; oud §7.4.8 → §7.4.10 met vragen 7 en 8. §7.4.4 en §7.4.7 hebben nog een tijdas.
+- Gevonden: `UnmergeMessages` brengt Louis's oude schermnamen terug ("Louis Ancien", "~Louis
+  Chess…"), dus in cel 3 nu ook `CanonicalAuthor` erachter. Plek-tellingen veranderen niet.
+- Cijfers wie-noemt-wat: Louis-plekken Levallois, Villejuif, Bressuire; Roos o.a. Utrecht (66%),
+  Amsterdam (61%), Zoetermeer, Nieuwegein, Avignon, Terschelling; gedeeld o.a. Paris (48%),
+  Marseille, Rotterdam (59%). Roos heeft 57% van alle plek-dagen (56% van de berichten). Dicht
+  bij een grens: Lille, Rotterdam, Corsica (precies 60%), Amsterdam.
+
+### Still open (Roos)
+- [ ] Het verhaal van visualisatie 2 in één zin: wat moet een lezer zien? (zie §7.4.10 vraag 7)
+- [ ] Is 60% veel, als Roos sowieso 57% van de plek-dagen heeft? Grenswaarden bij 55/45?
+- [ ] §7.4.4 en §7.4.7 ook zonder tijdas, of houden als "wanneer"-plaatjes naast 7.4.6?
+- [ ] Titels van visualisatie 4 en 5 zijn beschrijvend; eigen claim schrijven.
+
+## 2026-11-03 (4) — roos_07.4 §7.4.10: mensen in de buurt van Benji (oppassers zoeken)
+
+- Vraag (Roos): zelfde soort netwerk, met mensen die bij Benji genoemd worden, om mogelijke
+  oppassers te vinden. Roos's beslissingen: window **30 minuten** voor/na een Benji-bericht;
+  periode **vanaf de eerste "Benji"** (22-01-2025); **alleen lijnen persoon–Benji** (ster);
+  **namen + familiewoorden**.
+- Gebouwd: `roos_pipeline/people.py` (`load_people`, `mentions`, `near`, `benji_graph`,
+  `star_layout`), getekend met `places.GraphPlot`; `settings.BENJI_*`, `MIN_NEAR_DAYS = 2`
+  (startpunt, door mij gekozen: Roos moet die nog beoordelen), kleuren Benji/familie/naam.
+  5 tests in `tests/roos_pipeline/test_people.py`; 69 passed.
+- De namen staan in `config.toml` `[people]` (gitignored, persoonsgegevens): een **kandidaten-
+  lijst** van 36 namen uit hoofdletterwoorden binnen 30 min van "Benji", plus familiewoorden per
+  schrijver ("mon père" van Roos = vader Roos, "ton père" van Louis ook). papa/maman weggelaten.
+  Twijfelgevallen gemarkeerd: Ton, Frank, Beau, Arthaud (hoofdlettergevoelig of check).
+- Uitkomst (kandidatenlijst, nog niet gecheckt): 45 mensen minstens 1 dag bij Benji, 38 op 2+.
+  Sterkst: ouders Roos 33 dagen, vader Roos 27, Léa 26, David 18, broer Roos 17, Brice 16,
+  moeder Roos 16. Aandeel "bij Benji" van iemands dagen: David 72%, Janneke 71%, Zelda 63%.
+  Familie van Louis nauwelijks (ouders Louis 9 dagen).
+- Notebook: "What to write down" is nu §7.4.11, met vraag 9.
+
+### Still open (Roos)
+- [ ] Kandidatenlijst in `config.toml` checken: wat is geen persoon, wie mist (bijnamen, oma/opa
+  in eigen woorden, de crèche-juf?), twee spellingen van één persoon samenvoegen.
+- [ ] Is 30 min het goede window, en is 2 dagen de goede drempel?
+- [ ] Kleur of volgorde op "aandeel van hun dagen bij Benji" in plaats van het aantal dagen?
+- [ ] Eigen titel/claim; let op: echte namen in een ingeleverd plaatje?
+
+## 2026-11-03 (5) — roos_07.4 §7.4.11: wie verbindt onze vrienden en familie? (netwerk + matrix)
+
+- Vraag (Roos): alle vrienden en familie van Roos en Louis, wie is de verbindende factor; ook
+  als matrix. Roos's beslissingen: **twee regels naast elkaar** (binnen 30 minuten / zelfde
+  bericht); kant = **wie noemt ze (60/40-regel)**; verbinder = **betweenness** (ongewogen, als
+  07.2); **Benji geen knoop**. Periode: hele chat (door mij gekozen, niet gevraagd).
+- Gebouwd: `people_graph`, `person_sides`, `side_order`, `MatrixPlot` (log-schaal, blokken per
+  kant); `GraphPlot` kreeg `marked` (ring + vet). `mentions` geeft nu ook `message_id` en
+  `author`. `circle_layout(attr=...)`. Instellingen `FRIEND_WINDOW`, `MIN_PERSON_DAYS` 10,
+  `MIN_PAIR_DAYS` 3, `N_CONNECTORS` 3 (drempels door mij gekozen als startpunt). 71 tests passed.
+- Bug onderweg: een argument `highlight=` verdween stil, omdat `BasePlot.plot` elk keyword met
+  de naam van een `PlotSettings`-veld inslikt. Hernoemd naar `marked`.
+- Kandidatenlijst uitgebreid met 20 namen uit de hele chat (Guillaume, Jolijn, Heleen, …;
+  Ouren/Poe/Kuma/Falco gemarkeerd als "check"). Betweenness: alle 65 mensen, ongesnoeid.
+- Uitkomst: 30 min → ouders Roos (0.10), broer Roos (0.10), Léa (0.08). Zelfde bericht →
+  Julien (0.14), broer Roos (0.13), zus Roos (0.10). **Alleen broer Roos in beide top 3.**
+  Kanten: 47 Roos, 14 Louis, 4 gedeeld; "ouders/moeder/broer Louis" vallen aan Roos's kant
+  (Roos noemt ze vaker: "tes parents").
+
+### Still open (Roos)
+- [ ] Welke regel past bij "X verbindt onze werelden", en wat zegt het dat alleen je broer in
+  beide top 3 staat? (§7.4.12 vraag 10)
+- [ ] Is "wie noemt ze vaker" een goede maat voor "wiens vriend"? (familie van Louis bij Roos)
+- [ ] Ongewogen betweenness: een lijn van 1 dag telt even zwaar als een van 27. Eerlijk?
+- [ ] Kandidatenlijst checken (nu belangrijker: elke foute naam kan een route zijn).
+
+## 2026-11-03 (6) — roos_07.4 §7.4.11: "zelfde bericht" sinds de geboorte, met Benji, geen cirkel
+
+- Vraag (Roos): het plaatje "namen in hetzelfde bericht" aanpassen: minder belangrijke mensen
+  weg, alleen vanaf Benji's geboorte, geen cirkel, Benji erbij. Roos's keuzes: **veer-model**,
+  weglaten = **minder dan `MIN_PERSON_DAYS` (10) dagen genoemd** in deze periode.
+- Gedaan: eigen cel na het 30-minutenplaatje (dat houdt de cirkel). Benji als naam toegevoegd
+  (`BENJI_PATTERN`), alleen in deze cel. Layout = Kamada-Kawai (ongewogen, deterministisch),
+  in de hoogte uitgerekt tot een vierkant; alle lijnen tussen de overgebleven 26 mensen blijven.
+  Betweenness op alle 52 mensen sinds de geboorte. Tabel en matrices hierboven: nog hele chat,
+  zonder Benji.
+- Uitkomst: **Benji is de verbinder** (betweenness 0.48), daarna Radek (0.07) en broer Roos
+  (0.04). Radek is de brug naar een groepje van Louis (Guido, Sjoerd, Tim) dat verder nergens
+  aan vastzit. Dikste lijn Benji–ouders Roos (23 dagen). 26 mensen weggelaten.
+
+### Still open (Roos)
+- [ ] Is "Benji verbindt" een vondst of volgt het uit de regel? (Hij wordt op 348 dagen
+  genoemd: wie zo vaak voorkomt, ligt bijna vanzelf op elke route.)
+- [ ] Radek op 10 dagen, precies op de drempel: wat als de drempel 11 is?
+- [ ] Matrix voor deze periode ook, of houden op de hele chat?

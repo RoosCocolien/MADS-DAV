@@ -339,6 +339,35 @@ MIN_PLACE_DAYS = 10
 MIN_LINK_DAYS = 5
 MAX_LINKS = 3
 ALWAYS_KEEP = ("Corsica",)  # where we met: kept whatever its count
+# Who names a place (Roos's rule, 2026-11-03): Roos's share of its days. At SHARED_HIGH or
+# more it is Roos's place, at SHARED_LOW or less Louis's, in between it is shared.
+SHARED_LOW = 0.40
+SHARED_HIGH = 0.60
+# Okabe-Ito reddish purple and bluish green: not the country colours, so the two
+# pictures can't be confused; shared is grey.
+ROOS_COLOR = "#CC79A7"
+LOUIS_COLOR = "#009E73"
+SHARED_COLOR = "#7f7f7f"  # GREY
+# People near Benji, looking for babysitters (Roos's rules, 2026-11-03): a person is near
+# Benji when named within BENJI_WINDOW of a message naming Benji, from the first "Benji"
+# on. Counted in days. The names themselves live in config.toml [people], not here.
+BENJI = "Benji"
+BENJI_PATTERN = r"\bbenji"
+BENJI_WINDOW = pd.Timedelta(minutes=30)
+# days near Benji before a person gets a dot (a starting point, 2026-11-03)
+MIN_NEAR_DAYS = 2
+# Okabe-Ito vermillion for Benji, sky blue for a family word, grey for a name.
+BENJI_COLOR = "#D55E00"
+FAMILY_COLOR = "#56B4E9"
+NAME_COLOR = "#7f7f7f"  # GREY
+# Who connects our friends and family (Roos's rules, 2026-11-03): two people are linked
+# when named within FRIEND_WINDOW of each other, or (second picture) in the same message;
+# their side is who names them (SHARED_LOW/HIGH). The connector is the highest
+# betweenness, unweighted as in 07.2, on the full graph; only the picture is pruned.
+FRIEND_WINDOW = pd.Timedelta(minutes=30)
+MIN_PERSON_DAYS = 10  # in the picture: a person named on at least this many days
+MIN_PAIR_DAYS = 3  # in the picture: a link of at least this many days (starting points)
+N_CONNECTORS = 3  # the top betweenness, ringed
 
 # --- statistics --------------------------------------------------------------------
 
