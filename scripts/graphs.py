@@ -60,64 +60,6 @@ class MentionEdges(TransformBase):
         )
 
 
-class HourProfile(TransformBase):
-    """One row per author, 24 columns: when in the day that author speaks.
-
-    Each row sums to one, so a person who sent forty messages is comparable with one who
-    sent four thousand. `normalise` then divides every hour by the channel's own share of
-    traffic in that hour, which is what stops the answer being "everyone sleeps at
-    night": after it, the columns say *unusually* active at this hour, and two people who
-    are both awake at 03:00 are far more alike than two who are both awake at 20:00.
-    """
-
-    def transform(
-        self,
-        data: pd.DataFrame,
-        author: str = "author",
-        hour: str = "hh",
-        normalise: bool = True,
-    ) -> pd.DataFrame:
-        counts = (
-            data.pivot_table(index=author, columns=hour, aggfunc="size", fill_value=0)
-            .reindex(columns=range(24), fill_value=0)
-            .astype(float)
-        )
-        profile = counts.div(counts.sum(axis=1), axis=0)
-        if normalise:
-            channel = counts.sum(axis=0) / counts.to_numpy().sum()
-            profile = profile.div(channel, axis=1)
-        return profile.fillna(0.0)
-
-
-def cosine_edges(profiles: pd.DataFrame, quantile: float = 0.90) -> pd.DataFrame:
-    """Connect the pairs whose profiles point in the most similar direction.
-
-    Cosine ignores length, so this is about *shape* — the hours someone is around, not
-    how much they say. `quantile` is the whole rule: 0.90 keeps the most similar tenth of
-    all pairs, which fixes the edge count and leaves the threshold value to the data.
-    It is a dial on the answer in exactly the way 07.1's response window was, so it
-    belongs in the caption of anything drawn from it.
-    """
-    matrix = profiles.to_numpy(dtype=float)
-    lengths = np.linalg.norm(matrix, axis=1, keepdims=True)
-    unit = matrix / np.maximum(lengths, 1e-12)
-    similarity = unit @ unit.T
-    np.fill_diagonal(similarity, 0.0)
-
-    upper = np.triu_indices_from(similarity, k=1)
-    threshold = float(np.quantile(similarity[upper], quantile))
-    rows, cols = np.where(np.triu(similarity >= threshold, k=1))
-    names = profiles.index.to_numpy()
-    return pd.DataFrame(
-        {
-            "source": names[rows],
-            "target": names[cols],
-            "weight": similarity[rows, cols],
-            "threshold": threshold,
-        }
-    )
-
-
 def to_graph(edges: pd.DataFrame, nodes: list | np.ndarray | None = None) -> nx.Graph:
     """Turn an edge frame into an undirected graph, summing both directions.
 
@@ -139,9 +81,50 @@ def to_graph(edges: pd.DataFrame, nodes: list | np.ndarray | None = None) -> nx.
     return graph
 
 
+def induced(graph: nx.Graph, nodes) -> nx.Graph:
+    """The subgraph on `nodes`, as a graph of its own, in the node order of `graph`.
+
+    `graph.subgraph(nodes)` iterates the node set itself when it is small, and a set of
+    strings comes out in a different order every run. Layouts and matrices follow node
+    order, so a figure drawn from it would change from run to run.
+    """
+    keep = set(nodes)
+    sub = graph.__class__()
+    sub.add_nodes_from((n, d) for n, d in graph.nodes(data=True) if n in keep)
+    sub.add_edges_from(
+        (u, v, d) for u, v, d in graph.edges(data=True) if u in keep and v in keep
+    )
+    return sub
+
+
 def giant_component(graph: nx.Graph) -> nx.Graph:
     """The largest connected component, as a graph of its own."""
-    return graph.subgraph(max(nx.connected_components(graph), key=len)).copy()
+    return induced(graph, max(nx.connected_components(graph), key=len))
+
+
+def intransitivity(graph: nx.Graph) -> pd.Series:
+    """Bearman and Moody's intransitivity index, one value per node.
+
+    Of all two-step relations from a node (a neighbour's neighbour, other than the node
+    itself), the share that are not also direct relations: the triangles around the node
+    that did not close. A friend's friend reached through two friends counts twice, as
+    in the paper (American Journal of Public Health 94(1), 2004).
+
+    A node whose neighbours have no other neighbours has no two-step relations, so the
+    share is undefined there, and it is NaN rather than a zero that looks like a
+    measurement.
+    """
+    values = {}
+    for ego in graph.nodes():
+        steps = [
+            far
+            for near in graph.neighbors(ego)
+            for far in graph.neighbors(near)
+            if far != ego
+        ]
+        open_steps = sum(not graph.has_edge(ego, far) for far in steps)
+        values[ego] = open_steps / len(steps) if steps else np.nan
+    return pd.Series(values, name="intransitivity")
 
 
 def rewired(graph: nx.Graph, seed: int = 0) -> nx.Graph:
