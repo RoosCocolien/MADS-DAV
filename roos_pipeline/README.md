@@ -104,54 +104,72 @@ I meant it to do. Boxes are modules, cylinders are the files atlas sees them rea
 and write; the numbers on `main`'s arrows are the order of the calls in
 `run_stages`, each only when that stage is selected (`--stage` / `--from`).
 
+<!-- atlas-flowchart:start (drawn by tools/roos_atlas_flowchart.py, do not edit) -->
 ```mermaid
 flowchart LR
     main["__main__.main<br/>--stage / --from"]
-    cfg[/"config.toml"/]
-    raw[("data/processed/<br/>chat export")]
-
     prepare["prepare"]
     features["features"]
     aggregate["aggregate"]
     figures["figures"]
     plots["plots"]
-
-    m1[("1_messages.parquet")]
-    f2[("2_features.parquet")]
-    t_lang[("3_language_share.parquet")]
-    t_top[("3_weekly_topics.parquet")]
-    t_tstat[("3_topic_stats.json")]
-    t_sym[("3_weekly_symptoms.parquet")]
-    t_sstat[("3_symptom_stats.json")]
-    t_fr[("3_weekly_french.parquet")]
-    t_frstat[("3_french_stats.json")]
-    out[("figures/pipeline/<br/>6 figures · png + svg")]
+    settings["settings"]
+    p_config_toml[("config.toml")]
+    p_data_processed[("data/processed/")]
+    p_1_messages_parquet[("1_messages.parquet")]
+    p_2_features_parquet[("2_features.parquet")]
+    p_3_french_stats_json[("3_french_stats.json")]
+    p_3_language_share_parquet[("3_language_share.parquet")]
+    p_3_symptom_stats_json[("3_symptom_stats.json")]
+    p_3_topic_stats_json[("3_topic_stats.json")]
+    p_3_weekly_french_parquet[("3_weekly_french.parquet")]
+    p_3_weekly_symptoms_parquet[("3_weekly_symptoms.parquet")]
+    p_3_weekly_topics_parquet[("3_weekly_topics.parquet")]
+    p_figures_pipeline[("figures/pipeline/")]
 
     main -- "1" --> prepare
     main -- "2" --> features
     main -- "3" --> aggregate
     main -- "4" --> figures
-
-    cfg --> prepare
-    raw --> prepare --> m1
-    m1 --> features --> f2
-    f2 --> aggregate
-    aggregate --> t_lang & t_top & t_tstat & t_sym & t_sstat & t_fr & t_frstat
-    t_lang & t_top & t_tstat & t_sstat & t_fr & t_frstat --> figures
+    p_config_toml --> prepare
+    p_data_processed --> prepare
+    prepare --> p_1_messages_parquet
+    p_1_messages_parquet --> features
+    features --> p_2_features_parquet
+    p_2_features_parquet --> aggregate
+    aggregate --> p_3_french_stats_json
+    aggregate --> p_3_language_share_parquet
+    aggregate --> p_3_symptom_stats_json
+    aggregate --> p_3_topic_stats_json
+    aggregate --> p_3_weekly_french_parquet
+    aggregate --> p_3_weekly_symptoms_parquet
+    aggregate --> p_3_weekly_topics_parquet
+    p_3_french_stats_json --> figures
+    p_3_language_share_parquet --> figures
+    p_3_symptom_stats_json --> figures
+    p_3_topic_stats_json --> figures
+    p_3_weekly_french_parquet --> figures
+    p_3_weekly_topics_parquet --> figures
+    figures --> p_figures_pipeline
     figures -. "calls, no data" .-> plots
-    figures --> out
+    main -. "calls, no data" .-> settings
 
     classDef code fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
-    class main,prepare,features,aggregate,figures,plots code
-    class cfg,raw,m1,f2,t_lang,t_top,t_tstat,t_sym,t_sstat,t_fr,t_frstat,out file
+    class main,prepare,features,aggregate,figures,plots,settings code
+    class p_config_toml,p_data_processed,p_1_messages_parquet,p_2_features_parquet,p_3_french_stats_json,p_3_language_share_parquet,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
 ```
+<!-- atlas-flowchart:end -->
 
 `3_weekly_symptoms.parquet` has no arrow out: aggregate writes it, but no stage reads
 it (the figure uses `3_symptom_stats.json`; only `test_pipeline.py` opens it). `vectors` is left out: it is not part of
 the pipeline yet.
 
-To redraw it yourself: `atlas serve` in the repository, open part `roos_pipeline`, and
+The chart is not drawn by hand any more: on every commit that touches
+`roos_pipeline/*.py`, lefthook runs `tools/roos_atlas_flowchart.py`, which reads atlas's
+graph (`atlas analyze`) and rewrites the block between the `atlas-flowchart` markers. By
+hand: `uv run python tools/roos_atlas_flowchart.py` (`--check` only says if it is stale).
+To see it interactively: `atlas serve` in the repository, open part `roos_pipeline`, and
 shift-click the package to focus on it.
 
 ## Why the boundaries sit where they do

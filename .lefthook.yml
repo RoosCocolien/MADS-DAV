@@ -27,6 +27,11 @@ pre-commit:
     roos-pipeline-tests:
       glob: '{roos_pipeline/*.py,tests/roos_pipeline/*.py,pyproject.toml,uv.lock}'
       run: uv run pytest tests/roos_pipeline -q
+    # Redraw "The flowchart as atlas reads it" in roos_pipeline/README.md from what
+    # atlas reads in the code, and add the redrawn README to this same commit.
+    roos-atlas-flowchart:
+      glob: 'roos_pipeline/*.py'
+      run: uv run python tools/roos_atlas_flowchart.py && git add roos_pipeline/README.md
     pipeline-drift:
       glob: '{scripts/pipelines.py,notebooks/lesson1/01-cleaning.ipynb}'
       run: uv run python tools/check_pipeline_drift.py

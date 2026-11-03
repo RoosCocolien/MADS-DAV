@@ -1714,3 +1714,20 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
   Longer period: 18 places, 41 links. Paris now has 15 links, Utrecht 11, Amsterdam 10.
 - Plots: no country names on the y-axis, x-axis "Sep 23, Nov 23, ..." (every two months), size
   legend removed (only the country colours + pregnancy). 61 tests pass.
+
+## 2026-11-03 — roos_pipeline README: atlas flowchart redrawn on every commit (Roos's ask)
+
+- New `tools/roos_atlas_flowchart.py`: runs `atlas analyze` (whole repo, ~20 s; the
+  `--package` shortcut loses the calls into `wa_analyzer`) and draws the Mermaid chart from
+  the graph: modules reached from `__main__.main`, stages numbered in call order, the files
+  each module reads/writes. Writes it between `atlas-flowchart` markers in
+  `roos_pipeline/README.md`; `--check` only reports staleness.
+- `.lefthook.yml`: new pre-commit command `roos-atlas-flowchart` (glob `roos_pipeline/*.py`)
+  runs it and `git add`s the README into the same commit.
+- Differences vs. the old hand-copied chart: `settings` now shows (main → settings, dotted),
+  the chat export is labelled `data/processed/` as atlas names it, `config.toml` is a cylinder.
+
+### Still open (Roos)
+- [ ] The prose under the chart (`3_weekly_symptoms` has no arrow out, `vectors` left out) is
+  still hand-written: re-read it after the next redraw.
+- [ ] Commit `.lefthook.yml`, the tool and the README yourself.
