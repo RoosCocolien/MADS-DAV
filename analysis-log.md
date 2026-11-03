@@ -1731,3 +1731,20 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
 - [ ] The prose under the chart (`3_weekly_symptoms` has no arrow out, `vectors` left out) is
   still hand-written: re-read it after the next redraw.
 - [ ] Commit `.lefthook.yml`, the tool and the README yourself.
+
+## 2026-11-03 (2) — roos_06.5 §6.5.12: docent-feedback op het PCA-rapportplaatje (coaching)
+
+- Feedback (docent): de boodschap is *comparing categories* (liefde: 26% Frans vs. 13% Engels),
+  maar het plaatje is een PCA-kaart met 10% van de variatie, waarin liefde en planning door elkaar
+  liggen en de assen nergens voor gebruikt worden. Voorstel: simpele barchart. De burencheck
+  (45% vs. 16% bij toeval, in 384D) wijst op meer structuur dan PCA toont: t-SNE proberen?
+- Advies gegeven (nog niets veranderd): (1) hoofdplaatje = vergelijking van twee aandelen
+  (bar/dumbbell, `LanguageDumbbellPlot` bestaat al in cel 52), lengte zichtbaar maken i.p.v.
+  alleen in de subtitel; (2) "de encoder legt liefde bij elkaar" is een tweede, losse boodschap:
+  bewijs = burencheck als bars, eventueel t-SNE als ondersteunend plaatje; (3) t-SNE-valkuilen:
+  perplexity en seed horen bij de claim, afstanden tussen klonten en klontgrootte betekenen niets.
+
+### Still open (Roos)
+- [ ] Kiezen: welke boodschap(pen) gaan het verslag in, en welk plaatje hoort bij elk?
+- [ ] Barchart maken en eigen titel schrijven (cel 52 heeft nog `TITLE: write your own claim`).
+- [ ] t-SNE: wel/niet, en zo ja: welke perplexities vergelijk je, en wat zou je moeten zien?
