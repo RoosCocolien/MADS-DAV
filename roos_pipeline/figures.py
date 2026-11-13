@@ -6,6 +6,11 @@
     3_symptom_stats.json      -> prepare_and_plan          (roos_04.6d, code cell 11)
     3_weekly_french.parquet   -> familiar_language         (roos_05.6, code cell 14)
     3_french_stats.json
+    3_home_shares.parquet     -> onderweg_naar_thuis       (roos_07.4, code cell 24)
+    3_home_stats.json
+    3_style_docs.parquet      -> frans_van_roos_en_louis   (roos_06.6, code cell 19)
+    3_style_means.parquet
+    3_style_stats.json
 
 Each figure is one function: settings (titles, labels, colours) in, `Figure` out. The
 only calculations left here are presentation choices: the rolling average (how
@@ -27,9 +32,11 @@ from matplotlib.ticker import MultipleLocator, PercentFormatter
 from roos_pipeline import settings
 from roos_pipeline.aggregate import nbinom_from
 from roos_pipeline.plots import (
+    HomeAwayPlot,
     LabelledBarPlot,
     PeakLabelledCurves,
     PeriodPanelsPlot,
+    StyleMapPlot,
     TopicTrendPlot,
 )
 from roos_pipeline.settings import Paths
@@ -369,8 +376,153 @@ def familiar_language(weekly: pd.DataFrame, stats: dict) -> Figure:
     return fig
 
 
+# --- Van onderweg naar thuis (lesson 7) ---------------------------------------------
+
+
+def dutch_thousands(n: int) -> str:
+    return f"{n:,}".replace(",", ".")
+
+
+def home_caption(stats: dict) -> str:
+    """The three paragraphs under figure 7: dots and lines, themes, the shuffle test."""
+    by_message, by_day = stats["messages"], stats["days"]
+    n = dutch_thousands(stats["n_shuffle"])
+    p_floor = f"{1 / (stats['n_shuffle'] + 1):.4f}".replace(".", ",")
+    against = stats["against"]
+    return (
+        "Elke donkere stip is een stad. Hoe verder naar rechts, hoe hoger de "
+        "thuis-score: het deel van de thema's in de gesprekken over die stad dat over "
+        "thuis met kind gaat, tegenover spontaan op pad. Een lijn verbindt een stad met "
+        "een thema: hoe dikker, hoe vaker dat thema voorkwam in een gesprekje over de "
+        f"stad (het bericht dat de stad noemt plus de {settings.HOME_WINDOW} berichten "
+        f"erna). Lijnen onder {settings.HOME_MIN_SHARE:.0%} zijn weggelaten.\n\n"
+        "De zes thema's vallen in twee groepen: spontaan op pad (reizen, klimmen & "
+        "sport, eten & uitgaan) en thuis met kind (Benji & kind, wonen, familie). Werk "
+        "en vakantie tellen niet mee. Een thema is gevonden met een woordenlijst in het "
+        "Nederlands, Frans en Engels, bijvoorbeeld trein, TGV en gare; klimmen, "
+        "escalade en hardlopen; restaurant en apéro; Benji, crèche en luiers; huis, "
+        "appartement en verhuizen; ouders, oma en mes parents. Een woord kan ook iets "
+        "anders betekenen.\n\n"
+        f"Schudtest. De thuis-score van {stats['place']} ligt "
+        f"{by_message['gap_observed'] * 100:.0f} procentpunt hoger dan die van "
+        f"{', '.join(against[:-1])} en {against[-1]} samen. We hebben {n} keer "
+        "willekeurig gehusseld welke stad bij welk gesprekje hoort. In "
+        f"{by_message['n_shuffles_reaching_gap']} van de {n} keer kwam er een even "
+        f"groot verschil uit (p < {p_floor}); met een dag als eenheid in plaats van een "
+        f"bericht {by_day['n_shuffles_reaching_gap']} keer. Het verschil is dus "
+        "vrijwel zeker geen toeval; waarom het er is, zegt de test niet."
+    )
+
+
+def onderweg_naar_thuis(shares: pd.DataFrame, stats: dict) -> Figure:
+    """Figure 7: the places between the on-the-road and the home themes."""
+    # "vrijwel zeker geen toeval" in words: stop if the test stops saying so.
+    for unit in ("messages", "days"):
+        if not (
+            stats[unit]["gap_observed"] > 0 and stats[unit]["p_value_greater"] < 0.01
+        ):
+            raise ValueError(
+                f"The shuffle test per {unit} no longer supports the caption: rewrite it."
+            )
+    home_plot = PlotSettings(
+        figsize=(16, 11),
+        title="De reis van onze relatie: van spontaan op pad naar samen thuis.",
+    )
+    fig, _ = HomeAwayPlot(home_plot).plot(
+        table=shares,
+        subtitle=(
+            "Tussen Parijs, Amsterdam en Utrecht ging het over reizen, sport en "
+            "uitgaan. Sinds de komst van Benji\ngaat het in Nieuwegein over wonen en ons "
+            "kind, met hulp van opa en oma in Zoetermeer."
+        ),
+        caption=home_caption(stats),
+    )
+    return fig
+
+
+# --- Roos en Louis groeien naar elkaars Frans toe (lesson 6) -------------------------
+
+
+def p_short(p: float) -> str:
+    return "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
+
+
+def style_texts(stats: dict) -> dict[str, str]:
+    """Every sentence on figure 8. The axis examples come from the loadings (06.6)."""
+    similarity = stats["similarity"]
+    first_q, last_q = next(iter(similarity)), list(similarity)[-1]
+    roos, louis = stats["roos_trend"], stats["louis_trend"]
+    first, last = pd.Timestamp(stats["first_day"]), pd.Timestamp(stats["last_day"])
+    # "aug 2023 – sep 2026": lowercase English month abbreviations read as Dutch ones
+    period = f"{first:%b %Y} – {last:%b %Y}".lower()
+    explained = sum(stats["explained"])
+    return {
+        "title": "Roos en Louis groeien naar elkaars Frans toe",
+        "subtitle": (
+            "Roos ruilt schoolboek-Frans in voor spreektaal geleerd van Louis, Louis "
+            "laat zijn Engels los.\nHun stijlprofielen lijken steeds meer op elkaar: "
+            f"overeenkomst {similarity[first_q]:.2f} in {first_q[:4]}, "
+            f"{similarity[last_q]:.2f} in {last_q[:4]} (1 = identiek)."
+        ),
+        "x_low": "← correct Frans",
+        "x_low_examples": '"doit", "veux", "peut", "chez"',
+        "x_high": "Engelse resten en losse leestekens →",
+        "x_high_examples": '";)", " : ", " ! ", “ ” « », "or"',
+        "y_low": "↓ schoolboek-Frans",
+        "y_low_examples": '"beaucoup", "est-ce que", "n\'", ":)"',
+        "y_high": "spreektaal ↑",
+        "y_high_examples": '"ca", "faut", "oui", "quoi", " ? "',
+        "footnote": (
+            f"Franse WhatsApp-berichten van Roos en Louis, {period}. Trigrammen = "
+            'reeksen van 3 tekens; inhoudswoorden vervangen door "x", zodat onderwerp '
+            "niet meetelt.\n"
+            f"Per persoon per kwartaal {settings.STYLE_DOCS_PER_QUARTER} steekproeven "
+            f"van ±600 woorden → tf-idf ({stats['n_trigrams']} trigrammen) → PCA. De "
+            f"twee assen tonen {explained:.0%} van de variatie.\n"
+            "Toets: verschuift de stijl met de tijd? Roos omhoog naar spreektaal "
+            f"ρ = {roos['rho']:.2f}, {p_short(roos['p'])} · Louis naar links "
+            f"ρ = {louis['rho']:.2f}, {p_short(louis['p'])} · overeenkomst "
+            f"ρ = {stats['similarity_rho']:.2f}, {p_short(stats['similarity_p'])}.\n"
+            "Spearman-correlatie tussen maand en de gemiddelde positie van alle "
+            f"fragmenten van 15 woorden in die maand (Roos {roos['n_months']}, Louis "
+            f"{louis['n_months']} maanden met ≥{settings.STYLE_MIN_MONTH_FRAGMENTS} "
+            f"fragmenten);\np-waarde via {dutch_thousands(stats['n_shuffle'])} keer de "
+            "maanden door elkaar husselen. Overeenkomst = cosinus tussen de "
+            f"trigramprofielen per kwartaal ({len(similarity)} kwartalen), zelfde "
+            "permutatietoets."
+        ),
+    }
+
+
+def frans_van_roos_en_louis(
+    docs: pd.DataFrame, means: pd.DataFrame, stats: dict
+) -> Figure:
+    """Figure 8: the style map of our French, with the three tests in the footnote."""
+    # The subtitle claims three directions in words; stop if a test stops saying so.
+    claims = {
+        "Roos towards spoken French": (
+            stats["roos_trend"]["rho"],
+            stats["roos_trend"]["p"],
+            1,
+        ),
+        "Louis away from English": (
+            stats["louis_trend"]["rho"],
+            stats["louis_trend"]["p"],
+            -1,
+        ),
+        "more alike": (stats["similarity_rho"], stats["similarity_p"], 1),
+    }
+    for claim, (rho, p, direction) in claims.items():
+        if not (rho * direction > 0 and p < 0.05):
+            raise ValueError(f"The subtitle says '{claim}', the test no longer does.")
+    fig, _ = StyleMapPlot(PlotSettings(figsize=(12, 10), title="")).plot(
+        docs=docs, means=means, texts=style_texts(stats)
+    )
+    return fig
+
+
 def run(paths: Paths) -> None:
-    """Read the stage-3 files and write all six figures."""
+    """Read the stage-3 files and write all eight figures."""
     lang = pd.read_parquet(paths.language_share)
     weekly = pd.read_parquet(paths.weekly_topics)
     stats = json.loads(paths.symptom_stats.read_text())
@@ -390,4 +542,14 @@ def run(paths: Paths) -> None:
         "6_familiar_language_fewer_words",
         paths,
     )
-    logger.success(f"figures: 6 figures -> {paths.figures}")
+    home = onderweg_naar_thuis(
+        pd.read_parquet(paths.home_shares), json.loads(paths.home_stats.read_text())
+    )
+    save(home, "7_onderweg_naar_thuis", paths)
+    style = frans_van_roos_en_louis(
+        pd.read_parquet(paths.style_docs),
+        pd.read_parquet(paths.style_means),
+        json.loads(paths.style_stats.read_text()),
+    )
+    save(style, "8_frans_van_roos_en_louis", paths)
+    logger.success(f"figures: 8 figures -> {paths.figures}")

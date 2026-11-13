@@ -368,6 +368,318 @@ FRIEND_WINDOW = pd.Timedelta(minutes=30)
 MIN_PERSON_DAYS = 10  # in the picture: a person named on at least this many days
 MIN_PAIR_DAYS = 3  # in the picture: a link of at least this many days (starting points)
 N_CONNECTORS = 3  # the top betweenness, ringed
+# Topics we talk about (Roos asked for the 15 most discussed hobbies and activities,
+# 2026-11-03). A CANDIDATE list, (group, regex) like PLACES, so `place_days` counts them
+# in days. Matched after links are removed: a Spotify or Garmin URL is no film or music.
+# Checked on samples (2026-11-03) and left out because they mostly meant something else:
+# "dans" (French "in"), "les"/"cours" (French), "course" ("of course"), "soirée" (an
+# evening), "photo" (sending one), "gym" (mostly the climbing gym), "boeken" (booking).
+# Still loose: "vélo" is also transport, "km" also cycling, "prise" also "taken".
+ACTIVITY_TOPICS: dict[str, tuple[str, str]] = {
+    # sport
+    "klimmen": ("sport", TOPIC_PATTERNS["climbing"]),
+    "hardlopen": ("sport", TOPIC_PATTERNS["running"]),
+    "fietsen": (
+        "sport",
+        r"\bfiets(?:en|tocht)?\b|\bv[ée]lo\b|\bcycling\b|\bbike ride\b|\bwielren",
+    ),
+    "zwemmen": (
+        "sport",
+        r"\bzwem(?:men|bad)?\b|\bnager\b|\bnatation\b|\bpiscine\b|\bswim(?:ming)?\b",
+    ),
+    "yoga": ("sport", r"\byoga\b"),
+    "wandelen": (
+        "sport",
+        r"\bwandel(?:en|ing|tocht)?\b|\brandonn[ée]e\b|\bhik(?:e|ing)\b|\bbalade à pied\b|\bpromenade\b|\bwalk(?:ing)?\b",
+    ),
+    "skiën & bergen": (
+        "sport",
+        r"\bski(?:[ëe]n|ing)?\b|\bsnowboard\b|\bmontagne\b|\bmountains?\b",
+    ),
+    "fitness & balsport": (
+        "sport",
+        r"\bfitness\b|\bsportschool\b|\bmuscu(?:lation)?\b|\bpil[âa]tes\b|\bcrossfit\b|\bpadel\b|\btennis\b|\bvoetbal\b|\bfootball\b",
+    ),
+    "dansen": ("sport", r"\bdansen\b|\bdansles\b|\bdanser\b|\bdancing\b|\bsalsa\b"),
+    "zeilen & water": (
+        "sport",
+        r"\bzeil(?:en|boot)\b|\bsail(?:ing)?\b|\bkayak\b|\bsurf(?:en|ing)?\b|\bkano\b|\bpaddle\b",
+    ),
+    # culture
+    "film": (
+        "cultuur",
+        r"\bfilms?\b|\bmovies?\b|\bcin[ée]ma\b|\bbioscoop\b|\bnetflix\b",
+    ),
+    "muziek & concerten": (
+        "cultuur",
+        r"\bconcerts?\b|\bmusique\b|\bmuziek\b|\bmusic\b|\bfestival\b|\bguitare?\b|\bgitaar\b|\bpiano\b",
+    ),
+    "lezen & boeken": (
+        "cultuur",
+        r"\bboek\b|\bbooks?\b|\blivres?\b|\blezen\b|\blire\b|\breading\b|\broman\b|\bbouquiner\b",
+    ),
+    "museum & expo": (
+        "cultuur",
+        r"\bmus[ée]e\b|\bmuseum\b|\bexpo(?:sitie|sition)?s?\b|\bexhibition\b|\bgalerie\b|\bgallery\b",
+    ),
+    "theater": (
+        "cultuur",
+        r"\bth[ée][aâ]tre\b|\btheater\b|\bvoorstelling\b|\bspectacle\b|\bcabaret\b",
+    ),
+    "fotografie": (
+        "cultuur",
+        r"\bfotografe?(?:ie|ren)\b|\bphotograph(?:e|ie|y|er)\b|\bappareil photo\b",
+    ),
+    "spelletjes & schaken": (
+        "cultuur",
+        r"\bspelletjes?\b|\bjeux? de soci[ée]t[ée]\b|\bboard ?games?\b|\bjeux? vid[ée]o\b|\bpuzzel\b|\bpuzzle\b|\bschaken\b|\bchess\b|\blichess\b",
+    ),
+    # going out, at home
+    "koken": (
+        "uit & thuis",
+        r"\bkoken\b|\bcuisiner\b|\bcooking\b|\bcook\b|\brecette\b|\brecept\b|\brecipe\b",
+    ),
+    "uit eten": (
+        "uit & thuis",
+        r"\brestaurant\b|\bresto\b|\buit eten\b|\bbrunch\b|\bterras(?:je)?\b",
+    ),
+    "feest & borrel": (
+        "uit & thuis",
+        r"\bf[eê]tes?\b|\bfeest(?:je)?\b|\bparty\b|\bborrel\b|\bap[ée]ro\b|\bdrinks\b",
+    ),
+    "sauna & massage": (
+        "uit & thuis",
+        r"\bsauna\b|\bmassages?\b|\bhammam\b|\bwellness\b",
+    ),
+    "shoppen": ("uit & thuis", r"\bshopp?(?:en|ing)\b|\bwinkelen\b|\bsoldes\b"),
+    "tuin & planten": (
+        "uit & thuis",
+        r"\btuinieren\b|\bmoestuin\b|\bpotager\b|\bjardinage\b|\bgardening\b|\bplantes?\b|\bplanten\b",
+    ),
+    # life: not hobbies, but Roos chose to count them (2026-11-03)
+    "Benji & ouderschap": ("leven", TOPIC_PATTERNS["child"]),
+    "werk": (
+        "leven",
+        r"\bwerk\b|\btravail\b|\bboulot\b|\bwork(?:ing)?\b|\bjob\b|\bcoll[eè]gues?\b|\bcolleagues?\b|\bmeeting\b|\br[ée]union\b",
+    ),
+    "studie & school": (
+        "leven",
+        r"\bhogeschool\b|\bstudie\b|\b[ée]tudes\b|\bstudy\b|\bexam(?:en)?s?\b|\blessen\b|\btentamen\b|\bth[eè]se\b|\bscriptie\b|\bmaster\b",
+    ),
+    "vakantie & reizen": (
+        "leven",
+        r"\bvakantie\b|\bvacances\b|\bholiday\b|\bvacation\b|\bvoyage\b|\breis\b|\btrip\b|\bcamping\b",
+    ),
+}
+N_TOPICS = 15  # the most discussed, in days
+LINK_PATTERN = r"https?://\S+|www\.\S+"
+
+# --- 7.4.13: from on the road to home (Roos's rules, 2026-11-12) -----------------------
+# Five cities, Dutch names; Paris includes Gare du Nord, which is also a "reizen" word,
+# so a Gare du Nord message always counts as travel too.
+HOME_PLACES: dict[str, str] = {
+    "Parijs": PLACES["Paris"][1] + r"|\bgare du nord\b",
+    "Amsterdam": PLACES["Amsterdam"][1],
+    "Utrecht": PLACES["Utrecht"][1],
+    "Zoetermeer": PLACES["Zoetermeer"][1],
+    "Nieuwegein": PLACES["Nieuwegein"][1],
+}
+# Six themes in two groups, (group, regex). Work and holidays are left out: they hardly
+# differ between the places. Sport reuses the climbing/running lists of lesson 3, with
+# their known loose ends ("km", the climbing grades).
+AWAY, HOME = "onderweg", "thuis"
+HOME_THEMES: dict[str, tuple[str, str]] = {
+    "reizen": (
+        AWAY,
+        r"\btrein\b|\btrains?\b|\btgv\b|\bthalys\b|\beurostar\b|\bouigo\b|\bsncf\b|\bgare\b"
+        r"|\bstation\b|\bperron\b|\bquai\b|\bretard\b|\bvertraging\b|\bdelay(?:ed)?\b"
+        r"|\bbillets?\b|\btickets?\b|\bkaartje\b|\bvlucht\b|\bflight\b|\bvliegtuig\b"
+        r"|\bavion\b|\bblablacar\b|\bcovoiturage\b",
+    ),
+    "klimmen & sport": (
+        AWAY,
+        "|".join(
+            # "(?i)" is only allowed at the start of a pattern, so it goes when joined
+            [TOPIC_PATTERNS[t].removeprefix("(?i)") for t in ("climbing", "running")]
+            + [
+                ACTIVITY_TOPICS[t][1]
+                for t in ("fietsen", "zwemmen", "yoga", "wandelen")
+            ]
+        ),
+    ),
+    "eten & uitgaan": (
+        AWAY,
+        ACTIVITY_TOPICS["uit eten"][1]
+        + "|"
+        + ACTIVITY_TOPICS["feest & borrel"][1]
+        + r"|\bbar\b|\bd[iî]ner\b|\bdinner\b|\blunch\b|\bbiertje\b|\bbi[eè]re\b|\bbeer\b",
+    ),
+    "Benji & kind": (HOME, TOPIC_PATTERNS["child"]),
+    "wonen": (
+        HOME,
+        r"\bhuis\b|\bwoning\b|\bappartement\b|\bappart\b|\bflat\b|\bhuur\b|\bloyer\b"
+        r"|\bmaison\b|\bhouse\b|\bverhuiz\w*|\bd[ée]m[ée]nag\w*|\bhypotheek\b|\bmortgage\b"
+        r"|\bmakelaar\b|\bfunda\b|\bimmobili\w*|\bbezichtiging\w*",
+    ),
+    "familie": (
+        HOME,
+        r"\bfamil(?:ie|le|y)\b|\bvader\b|\bmoeder\b|\bouders\b|\bp[eè]re\b|\bm[eè]re\b"
+        r"|\bparents\b|\bbroer(?:tje)?\b|\bzus(?:je)?\b|\bfr[eè]re\b|\bs(?:oe|œ)ur\b"
+        r"|\boma\b|\bopa\b|\bmamie\b|\bpapi\b|\bschoon(?:ouders|moeder|vader)\b"
+        r"|\bbeaux-parents\b|\bbelle-m[eè]re\b|\bbeau-p[eè]re\b|\btante\b|\boom\b|\boncle\b",
+    ),
+}
+HOME_WINDOW = 3  # a "gesprekje": the message with the place and the 3 after it
+HOME_MIN_SHARE = 0.08  # lines below this share are left out
+# The shuffle test under the picture: Nieuwegein against the three cities of the
+# long-distance years, taken together (Roos's sentence, 2026-11-12).
+HOME_TEST_PLACE = "Nieuwegein"
+HOME_TEST_AGAINST = ("Parijs", "Amsterdam", "Utrecht")
+AWAY_COLOR = "#eb6834"
+HOME_COLOR = "#1baf7a"
+PAPER = "#fcfcfb"
+
+# --- 6.6: Roos and Louis in French, by character trigrams (roos_06.6, 2026-11-12) ----
+
+# Characters per chunk. Louis wrote ~270,000 French characters, so 1,000 gives him about
+# 220 chunks; 6.2 used 500 for the whole chat and called it noisy. A starting point.
+TRIGRAM_CHUNK_CHARS = 1_000
+# The "letters only" check (6.2.5): drop everything that is not a letter, accents kept
+# ("ça" stays "ça"), so punctuation, digits, emoji and the keyboard's apostrophe go.
+NOT_A_LETTER_PATTERN = r"[^\w ]|[\d_]"
+N_LABEL_SHUFFLES = 50  # shuffled author labels for the silhouette baseline, as in 6.2
+
+# --- 6.6.7: a style map from masked trigrams (roos_06.6, 2026-11-12) ---------------
+# Moved from scripts/stijlkaart.py on 2026-11-13, when the figure joined the pipeline.
+
+# cleaning:
+
+# WhatsApp's own lines, as they appear in this (Dutch) export. Checked on the chat
+# (2026-11-12): calls ("Spraakoproep. Geen antwoord", "Gemiste spraakoproep. Tik om terug te
+# bellen"), media ("afbeelding weggelaten"), edits, deletions and the encryption notice.
+STYLE_SYSTEM_PATTERNS: tuple[str, ...] = (
+    r"\b(?:afbeelding|audio|video|sticker|GIF|document|contactkaart)\s+weggelaten\b",
+    r"<Dit bericht is bewerkt>",
+    r"(?:Gemiste\s+)?(?:spraak|video)-?oproep\..*",
+    r"(?:Je hebt dit bericht verwijderd|Dit bericht is verwijderd)\.?",
+    r"Berichten en oproepen worden end-to-end versleuteld\..*",
+)
+# Phones type ’ or ‘, people type ' : without this, the phone is the biggest "style" difference.
+STYLE_APOSTROPHES = "’‘`´"
+
+# French by stopwords:
+
+# Short lists of the most frequent words per language, written out by hand (Roos chose this
+# over nltk, 2026-11-12). Words are matched after apostrophes are split off, so "c'est"
+# counts as "c" + "est". Only words in exactly one list count (see `unique_stopwords`):
+# "de", "je", "en", "la", "me", "que", "tu", "es" and "a" are in two lists and so say nothing.
+STYLE_STOPWORDS: dict[str, frozenset[str]] = {
+    "fr": frozenset(
+        """
+        le la les l un une des du de d au aux et ou où mais donc car ni je j tu il elle on
+        nous vous ils elles me m te t se s lui leur moi toi ce c cette ces cet ça ca qui que
+        qu quoi dont mon ma mes ton ta tes son sa ses notre nos votre vos dans pour avec sur
+        sous sans chez par entre vers ne n pas plus rien jamais suis es est sommes êtes etes
+        sont était etait étais etais été ete ai as a avons avez ont avais avait eu vais vas
+        va allons allez vont fais fait faire faut peux peut veux veut dois doit très tres
+        déjà deja aussi bien oui non ouais alors comme quand parce encore toujours beaucoup
+        trop peu tout tous toute toutes cest jai voilà voila aujourd hui demain merci bisous
+        coucou y en
+    """.split()
+    ),
+    "en": frozenset(
+        """
+        the a an and or but is are was were be been am i you he she it we they me him her us
+        them my your his its our their this that these those what which who whom to of in on
+        at for with from by about as not no yes do does did have has had will would can
+        could should just so if then than there here when where why how all some any very
+        really too also im dont thats s t m ll re ve d
+    """.split()
+    ),
+    "nl": frozenset(
+        """
+        de het een en of maar is zijn was waren ben bent ik jij je u hij zij ze wij we jullie
+        mij me mijn jouw jou haar ons onze hun dit dat deze die wat wie welke naar van in op
+        aan voor met uit door over als niet geen ja nee doen doet deed heb hebt heeft hadden
+        had zal zou kan kunnen moet moeten wil willen gewoon ook nog al wel dan daar hier
+        wanneer waar waarom hoe alle alles veel heel erg echt toch even nu s t
+    """.split()
+    ),
+    "es": frozenset(
+        """
+        el la los las un una unos unas y o pero es son era fue ser estar está esta estoy yo
+        tú tu él ella nosotros ellos me te se lo le les mi mis su sus nuestro este esto ese
+        eso que qué quien de del en con por para sin sobre como cuando donde porque no sí si
+        muy más mas también tambien ya hay hola gracias bueno pues todo nada algo
+    """.split()
+    ),
+}
+STYLE_FRENCH_SHARE = 0.60  # of the recognised stopwords
+STYLE_LETTER_RUN = r"[^\W\d_]+"  # a run of letters: "c'est" -> "c", "est"
+
+# units, fragments, masking:
+
+STYLE_UNIT_GAP_SECONDS = (
+    5 * 60
+)  # a person's French messages closer than this form one unit
+STYLE_MIN_UNIT_WORDS = 8
+STYLE_FRAGMENT_WORDS = 15
+STYLE_MIN_FRAGMENT_WORDS = 8  # a shorter remainder at the end of a unit is dropped
+STYLE_EMOJI_PATTERN = "[\U0001f000-\U0001faff\U0001f1e6-\U0001f1ff☀-➿⬀-⯿️‍⃣]"
+# A token to mask: letters, possibly joined by hyphens ("est-ce", "peut-être"). Apostrophes,
+# punctuation, digits ("0") and spaces stay as typed: the space before "?" is a habit.
+STYLE_MASKED_WORD = r"[^\W\d_]+(?:-[^\W\d_]+)*"
+STYLE_MASK = "x"
+# ~150 French function words: they carry style, not topic. Accentless spellings included,
+# because that is how they are often typed.
+STYLE_FUNCTION_WORDS: frozenset[str] = frozenset(
+    """
+    je j tu il elle on nous vous ils elles me m te t se s lui leur leurs y en moi toi soi
+    eux ce c ceci cela ça ca celui celle ceux celles qui que qu quoi dont où ou lequel
+    laquelle le la l les un une des du de d au aux mon ma mes ton ta tes son sa ses notre
+    nos votre vos à a dans par pour sur sous avec sans chez entre vers contre depuis pendant
+    avant après apres jusqu et mais donc or ni car si comme quand parce puisque
+    être etre suis es est sommes êtes etes sont était etait étais etais été ete sera serait
+    soit avoir ai as avons avez ont avait avais eu aura aurais aller vais vas va allons
+    allez vont allé alle faire fais fait faisons faites font pouvoir peux peut pouvons
+    pouvez peuvent pourrait pu vouloir veux veut voulons voulez veulent voudrais devoir
+    dois doit devons devez doivent devrait falloir faut fallait faudra faudrait
+    ne n pas plus jamais rien personne très tres trop beaucoup peu assez aussi bien encore
+    déjà deja toujours oui non ouais voilà voila alors puis là ici est-ce peut-être
+    peut-etre
+""".split()
+)
+
+# quarters, documents, half-years:
+
+# Louis wrote too little French in these quarters to sample from on their own.
+STYLE_QUARTER_MERGE = {"2023Q3": "2023Q4", "2025Q2": "2025Q1"}
+# The chat ends in Sep 2026: the second half of 2026 is incomplete.
+STYLE_HALF_YEAR_MERGE = {"2026H2": "2026H1"}
+STYLE_DOCS_PER_QUARTER = 12
+STYLE_FRAGMENTS_PER_DOC = 40  # ~600 words
+STYLE_MIN_MONTH_FRAGMENTS = 10
+
+# the figure:
+
+STYLE_ROOS_BLUE = "#2a78d6"
+STYLE_LOUIS_ORANGE = "#eb6834"
+STYLE_PERSON_COLORS = {"Roos": STYLE_ROOS_BLUE, "Louis": STYLE_LOUIS_ORANGE}
+STYLE_TEXT = "#1f1f1e"
+STYLE_MUTED = "#8a8a83"
+STYLE_FRAME = "#e6e6e1"
+STYLE_MIN_ARROW_SHARE = 0.025  # of the x range: shorter arrows are skipped
+
+# PCA's sign is arbitrary: an axis whose marker trigrams point the wrong way is flipped.
+# x: correct French (low) to loose punctuation and English leftovers (high); y: school
+# French (low) to spoken French (high). Taken from the loadings in roos_06.6 §6.6.7.
+STYLE_MARKERS: dict[str, dict[str, tuple[str, ...]]] = {
+    "x": {"high": (" ;)", " : ", " ! ", " or"), "low": ("doi", "veu", "hez", "peu")},
+    "y": {
+        "high": (" ca", "ca ", "fau", "oui", " ? "),
+        "low": ("bea", "uco", "-ce", " n'"),
+    },
+}
 
 # --- statistics --------------------------------------------------------------------
 
@@ -449,3 +761,33 @@ class Paths:
     @property
     def french_stats(self) -> Path:
         return self.processed / "3_french_stats.json"
+
+    # Figures 7 and 8 start from the messages split back apart (UnmergeMessages), a
+    # second stage-1 file, so figures 1-6 keep the rows they were made with.
+    @property
+    def unmerged(self) -> Path:
+        return self.processed / "1_unmerged.parquet"
+
+    @property
+    def unmerged_features(self) -> Path:
+        return self.processed / "2_unmerged_features.parquet"
+
+    @property
+    def home_shares(self) -> Path:
+        return self.processed / "3_home_shares.parquet"
+
+    @property
+    def home_stats(self) -> Path:
+        return self.processed / "3_home_stats.json"
+
+    @property
+    def style_docs(self) -> Path:
+        return self.processed / "3_style_docs.parquet"
+
+    @property
+    def style_means(self) -> Path:
+        return self.processed / "3_style_means.parquet"
+
+    @property
+    def style_stats(self) -> Path:
+        return self.processed / "3_style_stats.json"

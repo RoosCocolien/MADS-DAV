@@ -15,15 +15,28 @@
            -> french_length_stats  log fit + within-week Wilcoxon test
                                                                 -> 3_french_stats.json
 
+    2_unmerged_features.parquet
+      -> theme_shares          share per (place, theme), thuis-score
+                                                                -> 3_home_shares.parquet
+      -> place_talks -> home_stats
+                               Nieuwegein vs. Parijs/Amsterdam/Utrecht: shuffle test,
+                               per message and per day          -> 3_home_stats.json
+      -> style_map             French units -> masked fragments -> documents ->
+                               tf-idf + PCA(2); trends + similarity with shuffle p
+                                                                -> 3_style_docs.parquet
+                                                                -> 3_style_means.parquet
+                                                                -> 3_style_stats.json
+
 Everything after this stage works on a few hundred rows instead of 63,000 messages,
 and the slowest step of the whole pipeline (10,000 shuffles) runs here, once. The
-figures stage only reads these seven small files, so a title can change without
+figures stage only reads these small files, so a title can change without
 re-running any of it.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -32,10 +45,13 @@ from goad_toolkit.analytics import NullDistribution
 from goad_toolkit.datatransforms import Filter, Pipeline
 from loguru import logger
 from scipy import optimize, stats
+from sklearn.decomposition import PCA
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from roos_pipeline import settings
 from roos_pipeline.features import PregnancyWeek
 from roos_pipeline.settings import Paths
+from scripts.sessionize import merge_messages, sessionize
 
 if TYPE_CHECKING:
     # scipy has no public name for a frozen distribution; only needed for the type.
@@ -393,8 +409,398 @@ def french_length_stats(louis: pd.DataFrame, weekly: pd.DataFrame) -> dict:
     }
 
 
+# --- Van onderweg naar thuis (roos_07.4 §7.4.13) ------------------------------------
+
+
+def theme_shares(features: pd.DataFrame) -> pd.DataFrame:
+    """One row per place: `berichten`, one share column per theme, and `thuis_score`.
+
+    share(place, theme) = messages naming the place whose gesprekje holds the theme /
+    messages naming the place. thuis_score = the summed shares of the home themes /
+    the summed shares of all themes.
+    """
+    rows = {}
+    for place in settings.HOME_PLACES:
+        here = features[f"place_{place}"]
+        n = int(here.sum())
+        rows[place] = {"berichten": n} | {
+            theme: float((features[f"talk_{theme}"] & here).sum() / n) if n else 0.0
+            for theme in settings.HOME_THEMES
+        }
+    table = pd.DataFrame.from_dict(rows, orient="index")
+    home = [t for t, (g, _) in settings.HOME_THEMES.items() if g == settings.HOME]
+    table["thuis_score"] = table[home].sum(axis=1) / table[
+        list(settings.HOME_THEMES)
+    ].sum(axis=1)
+    return table.rename_axis("place")
+
+
+def place_talks(features: pd.DataFrame) -> pd.DataFrame:
+    """One row per message naming exactly one place: `day`, `place`, `home`, `away`.
+
+    `home` and `away` count the themes of that group in the message's gesprekje.
+    Summed over a place they give its thuis-score (home / (home + away)), because
+    every share has the same denominator. A message naming two places is left out:
+    it has no single label to shuffle.
+    """
+    places = list(settings.HOME_PLACES)
+    named = features[[f"place_{p}" for p in places]].to_numpy(dtype=bool)
+    only_one = named.sum(axis=1) == 1
+    count = {
+        group: sum(
+            features[f"talk_{t}"].to_numpy(dtype=int)
+            for t, (g, _) in settings.HOME_THEMES.items()
+            if g == group
+        )
+        for group in (settings.HOME, settings.AWAY)
+    }
+    return pd.DataFrame(
+        {
+            "day": features["ts_local"].dt.normalize().to_numpy()[only_one],
+            "place": np.array(places)[named[only_one].argmax(axis=1)],
+            "home": np.asarray(count[settings.HOME])[only_one],
+            "away": np.asarray(count[settings.AWAY])[only_one],
+        }
+    )
+
+
+def home_gap(
+    talks: pd.DataFrame,
+    place: str = settings.HOME_TEST_PLACE,
+    against: tuple[str, ...] = settings.HOME_TEST_AGAINST,
+) -> float:
+    """thuis-score of `place` minus the thuis-score of `against` taken together."""
+
+    def score(rows: pd.DataFrame) -> float:
+        return rows["home"].sum() / (rows["home"].sum() + rows["away"].sum())
+
+    return score(talks[talks["place"] == place]) - score(
+        talks[talks["place"].isin(against)]
+    )
+
+
+def home_stats(features: pd.DataFrame, n_shuffle: int = settings.N_SHUFFLE) -> dict:
+    """The shuffle test of figure 7, with a message and with a day as the unit.
+
+    Shuffle the place label 10,000 times: how often does chance give a gap in
+    thuis-score as large as the real one? Messages on one day are no independent
+    draws (one evening about a house is ten messages), so the same test runs once
+    more on one row per (day, place), with that day's themes summed. One-sided:
+    the claim is that the place is *more* about home.
+    """
+    talks = place_talks(features)
+    per_day = talks.groupby(["day", "place"])[["home", "away"]].sum().reset_index()
+    out: dict = {
+        "place": settings.HOME_TEST_PLACE,
+        "against": list(settings.HOME_TEST_AGAINST),
+        "n_shuffle": n_shuffle,
+    }
+    for unit, frame in (("messages", talks), ("days", per_day)):
+        null = NullDistribution(home_gap, n_iter=n_shuffle, seed=settings.SEED).run(
+            frame, label="place"
+        )
+        out[unit] = {
+            "n_place": int((frame["place"] == settings.HOME_TEST_PLACE).sum()),
+            "n_against": int(frame["place"].isin(settings.HOME_TEST_AGAINST).sum()),
+            "gap_observed": float(null.observed),
+            "n_shuffles_reaching_gap": int((null.null >= null.observed).sum()),
+            "p_value_greater": float(null.p_value("greater")),
+        }
+    return out
+
+
+# --- Roos en Louis groeien naar elkaars Frans toe (roos_06.6 §6.6.7) -----------------
+
+
+def french_messages(features: pd.DataFrame) -> pd.DataFrame:
+    """The French messages (by stopwords), each once, with the cleaned text as `message`.
+
+    UnmergeMessages also brings back a quoted message a second time, under its own
+    header: the same time, author and text. It is kept once.
+    """
+    french = features[features["is_french"] & (features["clean_message"] != "")]
+    french = french.assign(message=french["clean_message"])
+    return french.drop_duplicates(["ts_local", "author", "message"])
+
+
+def french_units(
+    french: pd.DataFrame,
+    gap: float = settings.STYLE_UNIT_GAP_SECONDS,
+    min_words: int = settings.STYLE_MIN_UNIT_WORDS,
+) -> pd.DataFrame:
+    """A person's French messages less than `gap` seconds apart, joined into one unit.
+
+    Units under `min_words` words are dropped. A unit takes its first message's time.
+    `sessionize` and `merge_messages` are the teacher's (scripts/sessionize.py).
+    """
+    french = french.copy()
+    french["session_id"] = sessionize(french, "ts_local", "author", gap)
+    units = merge_messages(french.sort_values("ts_local"), ["author", "session_id"])
+    start = (
+        french.groupby(["author", "session_id"])["ts_local"].min().rename("ts_local")
+    )
+    units = units.join(start, on=["author", "session_id"])
+    units["n_words"] = units["message"].str.split().map(len)
+    return units[units["n_words"] >= min_words].reset_index(drop=True)
+
+
+def preprocess(text: str) -> str:
+    """Lowercase, emoji out, every digit a 0, whitespace collapsed."""
+    text = re.sub(settings.STYLE_EMOJI_PATTERN, " ", text.lower())
+    return re.sub(r"\s+", " ", re.sub(r"\d", "0", text)).strip()
+
+
+def mask_content_words(
+    text: str, keep: frozenset[str] = settings.STYLE_FUNCTION_WORDS
+) -> str:
+    """Every letter token that is not a function word becomes "x"; the rest stays."""
+    return re.sub(
+        settings.STYLE_MASKED_WORD,
+        lambda m: m.group(0) if m.group(0) in keep else settings.STYLE_MASK,
+        text,
+    )
+
+
+def style_quarter(when: pd.Series) -> pd.Series:
+    """ "2024Q1"-style labels, with the thin quarters merged (STYLE_QUARTER_MERGE)."""
+    return when.dt.to_period("Q").astype(str).replace(settings.STYLE_QUARTER_MERGE)
+
+
+def fragments(
+    units: pd.DataFrame,
+    size: int = settings.STYLE_FRAGMENT_WORDS,
+    min_words: int = settings.STYLE_MIN_FRAGMENT_WORDS,
+) -> pd.DataFrame:
+    """Every unit cut into pieces of `size` words, masked, with its quarter.
+
+    A remainder under `min_words` is dropped. Columns: `author`, `ts_local` (of the
+    unit), `text`, `masked`, `quarter`.
+    """
+    rows = []
+    for author, when, text in zip(
+        units["author"], units["ts_local"], units["message"], strict=True
+    ):
+        words = preprocess(text).split()
+        for start in range(0, len(words), size):
+            piece = words[start : start + size]
+            if len(piece) >= min_words:
+                rows.append((author, when, " ".join(piece)))
+    frags = pd.DataFrame(rows, columns=["author", "ts_local", "text"])
+    frags["masked"] = frags["text"].map(mask_content_words)
+    frags["quarter"] = style_quarter(frags["ts_local"])
+    return frags
+
+
+def sample_documents(
+    frags: pd.DataFrame,
+    n_docs: int = settings.STYLE_DOCS_PER_QUARTER,
+    per_doc: int = settings.STYLE_FRAGMENTS_PER_DOC,
+    seed: int = settings.SEED,
+) -> pd.DataFrame:
+    """Per person per quarter, `n_docs` documents of `per_doc` random fragments.
+
+    With replacement when the quarter has fewer than `per_doc` fragments. A document
+    takes the median time of its fragments.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for (author, quarter), group in frags.groupby(["author", "quarter"], sort=True):
+        replace = len(group) < per_doc
+        for _ in range(n_docs):
+            pick = group.iloc[rng.choice(len(group), size=per_doc, replace=replace)]
+            rows.append(
+                (author, quarter, pick["ts_local"].median(), " ".join(pick["masked"]))
+            )
+    return pd.DataFrame(rows, columns=["author", "quarter", "ts_local", "text"])
+
+
+def fit_style_space(
+    docs: pd.DataFrame, seed: int = settings.SEED
+) -> tuple[TfidfVectorizer, PCA, np.ndarray]:
+    """tf-idf of character trigrams within words (char_wb), then PCA to two axes."""
+    vectorizer = TfidfVectorizer(
+        analyzer="char_wb", ngram_range=(3, 3), min_df=5, sublinear_tf=True
+    )
+    weights = vectorizer.fit_transform(docs["text"]).toarray()
+    pca = PCA(n_components=2, random_state=seed).fit(weights)
+    return vectorizer, pca, pca.transform(weights)
+
+
+def axis_loadings(
+    vectorizer: TfidfVectorizer, pca: PCA, n: int = 12
+) -> dict[str, dict[str, list[str]]]:
+    """Per axis, the `n` trigrams with the lowest and the highest loading."""
+    names = vectorizer.get_feature_names_out()
+    out = {}
+    for axis, component in zip(("x", "y"), pca.components_, strict=True):
+        order = np.argsort(component)
+        out[axis] = {
+            "low": [str(names[i]) for i in order[:n]],
+            "high": [str(names[i]) for i in order[::-1][:n]],
+        }
+    return out
+
+
+def marker_score(
+    vectorizer: TfidfVectorizer,
+    component: np.ndarray,
+    high: tuple[str, ...],
+    low: tuple[str, ...],
+) -> float:
+    """Mean loading of the `high` markers minus that of the `low` ones.
+
+    Missing markers are skipped. Positive: the axis already points the way its
+    labels say.
+    """
+    index = {name: i for i, name in enumerate(vectorizer.get_feature_names_out())}
+
+    def mean(markers: tuple[str, ...]) -> float:
+        found = [component[index[m]] for m in markers if m in index]
+        return float(np.mean(found)) if found else 0.0
+
+    return mean(high) - mean(low)
+
+
+def axis_signs(vectorizer: TfidfVectorizer, pca: PCA) -> tuple[int, int]:
+    """+1 or -1 per axis, so the picture agrees with its labels (STYLE_MARKERS).
+
+    A score of exactly 0 (no marker found) keeps the axis as PCA gave it.
+    """
+    x, y = (
+        -1
+        if marker_score(vectorizer, component, **settings.STYLE_MARKERS[axis]) < 0
+        else 1
+        for axis, component in zip(("x", "y"), pca.components_, strict=True)
+    )
+    return x, y
+
+
+def half_year(when: pd.Series) -> pd.Series:
+    """ "2024H1"-style labels, the incomplete last half-year merged."""
+    half = np.where(when.dt.month <= 6, "H1", "H2")
+    return (when.dt.year.astype(str) + half).replace(settings.STYLE_HALF_YEAR_MERGE)
+
+
+def half_year_means(docs: pd.DataFrame) -> pd.DataFrame:
+    """Per person per half-year, the mean position of the documents, in time order."""
+    frame = docs.assign(half=half_year(docs["ts_local"]))
+    return (
+        frame.groupby(["author", "half"], sort=True)
+        .agg(x=("x", "mean"), y=("y", "mean"), ts_local=("ts_local", "median"))
+        .reset_index()
+    )
+
+
+def permutation_spearman(
+    order: np.ndarray,
+    values: np.ndarray,
+    n: int = settings.N_SHUFFLE,
+    seed: int = settings.SEED,
+) -> tuple[float, float]:
+    """Spearman's rho between `order` and `values`, and a two-sided shuffle p.
+
+    p = (shuffles of `order` with |rho| at least as large + 1) / (n + 1).
+    """
+    rng = np.random.default_rng(seed)
+    x = stats.rankdata(order)
+    y = stats.rankdata(values)
+    x = (x - x.mean()) / x.std()
+    y = (y - y.mean()) / y.std()
+    rho = float(np.mean(x * y))
+    shuffled = np.array([rng.permutation(x) for _ in range(n)])
+    null = (shuffled * y).mean(axis=1)
+    return rho, float((np.sum(np.abs(null) >= abs(rho)) + 1) / (n + 1))
+
+
+def monthly_trend(
+    frags: pd.DataFrame,
+    positions: np.ndarray,
+    author: str,
+    axis: int,
+    n_shuffle: int = settings.N_SHUFFLE,
+    min_fragments: int = settings.STYLE_MIN_MONTH_FRAGMENTS,
+) -> dict:
+    """Does one person's position on `axis` move with the months?
+
+    Per month the mean position of their fragments (months with `min_fragments` or
+    more), and the shuffle Spearman between month and position.
+    """
+    mine = frags["author"].to_numpy() == author
+    month = frags.loc[mine, "ts_local"].dt.to_period("M")
+    per_month = pd.DataFrame(
+        {"month": month.to_numpy(), "pos": positions[mine, axis]}
+    ).groupby("month")["pos"]
+    means = per_month.mean()[per_month.size() >= min_fragments]
+    rho, p = permutation_spearman(np.arange(len(means)), means.to_numpy(), n=n_shuffle)
+    return {"rho": rho, "p": p, "n_months": len(means)}
+
+
+def quarterly_similarity(
+    docs: pd.DataFrame, vectorizer: TfidfVectorizer
+) -> dict[str, float]:
+    """Per quarter, the cosine between Roos's and Louis's mean tf-idf profile."""
+    weights = vectorizer.transform(docs["text"]).toarray()
+    out = {}
+    for quarter in sorted(docs["quarter"].unique()):
+        in_quarter = docs["quarter"] == quarter
+        roos, louis = (
+            weights[(in_quarter & (docs["author"] == a)).to_numpy()].mean(axis=0)
+            for a in ("Roos", "Louis")
+        )
+        out[str(quarter)] = float(
+            roos @ louis / (np.linalg.norm(roos) * np.linalg.norm(louis))
+        )
+    return out
+
+
+def style_map(
+    features: pd.DataFrame, n_shuffle: int = settings.N_SHUFFLE
+) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """Everything figure 8 draws: documents, half-year means, and the numbers.
+
+    French messages -> units -> masked fragments -> 12 documents per person per
+    quarter -> tf-idf on char_wb trigrams -> PCA(2), axes turned to agree with their
+    labels. Tests: every fragment projected onto the axes, Spearman between month and
+    position (Roos on y, Louis on x), and the trend in the quarterly cosine between
+    the two profiles, all with shuffle p-values.
+    """
+    french = french_messages(features)
+    units = french_units(french)
+    frags = fragments(units)
+    docs = sample_documents(frags)
+    vectorizer, pca, coords = fit_style_space(docs)
+    signs = axis_signs(vectorizer, pca)
+    docs[["x", "y"]] = coords * np.asarray(signs)
+    frag_coords = pca.transform(
+        vectorizer.transform(frags["masked"]).toarray()
+    ) * np.asarray(signs)
+    similarity = quarterly_similarity(docs, vectorizer)
+    sim_rho, sim_p = permutation_spearman(
+        np.arange(len(similarity)), np.array(list(similarity.values())), n=n_shuffle
+    )
+    result = {
+        "first_day": str(french["ts_local"].min().date()),
+        "last_day": str(french["ts_local"].max().date()),
+        "n_units": {a: int(n) for a, n in units["author"].value_counts().items()},
+        "n_fragments": {a: int(n) for a, n in frags["author"].value_counts().items()},
+        "n_docs": len(docs),
+        "n_trigrams": len(vectorizer.vocabulary_),
+        "explained": [float(v) for v in pca.explained_variance_ratio_],
+        "signs": list(signs),
+        "loadings": axis_loadings(vectorizer, pca),
+        "roos_trend": monthly_trend(frags, frag_coords, "Roos", 1, n_shuffle),
+        "louis_trend": monthly_trend(frags, frag_coords, "Louis", 0, n_shuffle),
+        "similarity": similarity,
+        "similarity_rho": sim_rho,
+        "similarity_p": sim_p,
+        "n_shuffle": n_shuffle,
+    }
+    columns = ["author", "quarter", "ts_local", "x", "y"]
+    return docs[columns], half_year_means(docs), result
+
+
 def run(paths: Paths, n_shuffle: int = settings.N_SHUFFLE) -> None:
-    """Read 2_features.parquet, write the seven small stage-3 files."""
+    """Read both stage-2 files, write the eleven small stage-3 files."""
     features = pd.read_parquet(paths.features)
 
     language_share(features).to_parquet(paths.language_share)
@@ -425,6 +831,27 @@ def run(paths: Paths, n_shuffle: int = settings.N_SHUFFLE) -> None:
         f"{length['n_weeks_compared']} long-distance weeks, median gap "
         f"{length['median_difference']:+.1f} words, Wilcoxon p = "
         f"{length['wilcoxon_p_less']:.1e}"
+    )
+
+    unmerged = pd.read_parquet(paths.unmerged_features)
+    theme_shares(unmerged).to_parquet(paths.home_shares)
+    home = home_stats(unmerged, n_shuffle=n_shuffle)
+    paths.home_stats.write_text(json.dumps(home, indent=2))
+    logger.info(
+        f"aggregate: thuis-score {home['place']} minus the others "
+        f"{home['messages']['gap_observed']:+.0%}, shuffle p <= "
+        f"{home['messages']['p_value_greater']:.4f} (messages), "
+        f"{home['days']['p_value_greater']:.4f} (days)"
+    )
+
+    docs, means, style = style_map(unmerged, n_shuffle=n_shuffle)
+    docs.to_parquet(paths.style_docs)
+    means.to_parquet(paths.style_means)
+    paths.style_stats.write_text(json.dumps(style, indent=2))
+    logger.info(
+        f"aggregate: style map, Roos rho {style['roos_trend']['rho']:+.2f}, Louis rho "
+        f"{style['louis_trend']['rho']:+.2f}, similarity rho "
+        f"{style['similarity_rho']:+.2f} (p = {style['similarity_p']:.4f})"
     )
 
     result = symptom_stats(weekly, n_shuffle=n_shuffle)

@@ -57,18 +57,50 @@ def test_stages_run_one_after_another(paths, fake_chat):
     assert length["n_weeks_below"] == length["n_weeks_compared"] == 15
     assert length["median_difference"] == pytest.approx(-6.0)
 
+    # Figure 7: Nieuwegein is only home, the three others only on the road.
+    shares = pd.read_parquet(paths.home_shares)
+    assert shares.loc["Nieuwegein", "thuis_score"] == pytest.approx(1.0)
+    assert (shares.loc[["Parijs", "Amsterdam", "Utrecht"], "thuis_score"] == 0).all()
+    home = json.loads(paths.home_stats.read_text())
+    assert home["messages"]["gap_observed"] == pytest.approx(1.0)
+    assert home["days"]["n_place"] == 7
+
+    # Figure 8: the fake French grows together, so all three trends point the right way.
+    style = json.loads(paths.style_stats.read_text())
+    assert style["roos_trend"]["rho"] > 0 > style["louis_trend"]["rho"]
+    assert style["similarity_rho"] > 0
+    assert set(pd.read_parquet(paths.style_docs)["author"]) == {"Roos", "Louis"}
+
+
+def test_unmerged_splits_glued_rows_and_merges_their_names(paths, fake_chat):
+    glued = "eerst dit [14-06-2025, 20:05:00] Louis Ancien: en dit"
+    row = {"timestamp": "2025-06-14 20:00:00+00:00", "author": "Roos", "message": glued}
+    raw = pd.concat([fake_chat, pd.DataFrame([row])], ignore_index=True)
+    prepare.run(paths, raw=raw)
+    unmerged = pd.read_parquet(paths.unmerged)
+    assert len(unmerged) == len(pd.read_parquet(paths.messages)) + 1
+    second = unmerged[unmerged["message"] == "en dit"]
+    assert second["author"].tolist() == ["Louis"]
+    assert second["ts_local"].tolist() == [pd.Timestamp("2025-06-14 20:05:00")]
+
 
 def test_figures_stage_needs_only_the_stage_3_files(paths, fake_chat):
     prepare.run(paths, raw=fake_chat)
     features.run(paths)
     aggregate.run(paths, n_shuffle=200)
     # Delete stages 1 and 2's output: redrawing must not need them.
-    paths.messages.unlink()
-    paths.features.unlink()
+    for stage_file in (
+        paths.messages,
+        paths.unmerged,
+        paths.features,
+        paths.unmerged_features,
+    ):
+        stage_file.unlink()
 
-    # The fake chat is 3x by construction, so the "three times" guard passes.
+    # The fake chat is 3x by construction, so the "three times" guard passes; its
+    # places and its French are built so the guards of figures 7 and 8 pass too.
     figures.run(paths)
-    assert len(list(paths.figures.glob("*.png"))) == 6
+    assert len(list(paths.figures.glob("*.png"))) == 8
 
 
 def test_three_times_guard_stops_a_stale_claim():

@@ -24,55 +24,19 @@ train to Marseille are one day of Marseille.
 
 from __future__ import annotations
 
-import re
 import textwrap
 
 import matplotlib.dates as mdates
 import networkx as nx
 import numpy as np
 import pandas as pd
-from goad_toolkit.datatransforms import TransformBase
 from goad_toolkit.visualizer import BasePlot
 from matplotlib.artist import Artist
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Patch
 
 from roos_pipeline import settings
-
-# "‎[13-08-2023, 14:37:06] Roos: " in the middle of a row: the start of another message.
-EMBEDDED_HEADER = re.compile(
-    r"‎?\[(\d{1,2}-\d{1,2}-\d{4}, \d{2}:\d{2}:\d{2})\] ([^:\n]+): "
-)
-
-
-class UnmergeMessages(TransformBase):
-    """Split a row that holds several messages into one row per message.
-
-    After an "afbeelding weggelaten" line the export sometimes runs the next messages into
-    the same row, each behind its own "[dd-mm-yyyy, hh:mm:ss] Name: " header; 409 of those
-    headers carry a different day than the row (counted 2026-10-30). Lesson 6 cut them off
-    (`StripQuotedReply`); here they are kept, because a place in them was mentioned on the
-    day in *their* header. If a header is a quote of an older message instead, its day was
-    already counted then, and a day is only counted once per place, so nothing is doubled.
-    """
-
-    def transform(
-        self,
-        data: pd.DataFrame,
-        column: str = "message",
-        time_format: str = "%d-%m-%Y, %H:%M:%S",
-    ) -> pd.DataFrame:
-        rows = []
-        for when, author, text in zip(
-            data["ts_local"], data["author"], data[column].fillna(""), strict=True
-        ):
-            parts = EMBEDDED_HEADER.split(text)
-            rows.append((when, author, parts[0]))
-            for stamp, name, piece in zip(parts[1::3], parts[2::3], parts[3::3]):
-                rows.append((pd.to_datetime(stamp, format=time_format), name, piece))
-        out = pd.DataFrame(rows, columns=["ts_local", "author", column])
-        out[column] = out[column].str.replace("‎", "", regex=False).str.strip()
-        return out.sort_values("ts_local", kind="stable").reset_index(drop=True)
+from roos_pipeline.prepare import UnmergeMessages  # noqa: F401  (moved; notebooks import it here)
 
 
 def place_days(

@@ -1849,3 +1849,156 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
   genoemd: wie zo vaak voorkomt, ligt bijna vanzelf op elke route.)
 - [ ] Radek op 10 dagen, precies op de drempel: wat als de drempel 11 is?
 - [ ] Matrix voor deze periode ook, of houden op de hele chat?
+
+## 2026-11-03 (7) — roos_07.4 §7.4.12: onze 15 meest besproken onderwerpen (netwerk)
+
+- Vraag (Roos): visualisatie van de 15 meest besproken onderwerpen (hobby's, activiteiten).
+  Roos's keuzes: **netwerk van onderwerpen**; Benji, werk, studie en vakantie **tellen mee**;
+  lijnregel **zelfde bericht**.
+- Gebouwd: `settings.ACTIVITY_TOPICS` (27 kandidaat-onderwerpen, NL/FR/EN, groepen sport /
+  cultuur / uit & thuis / leven), `N_TOPICS`, `LINK_PATTERN`. Hergebruikt: `place_days` voor
+  de ranglijst, `mentions` + `people_graph` + `person_sides` voor de lijnen en de kleur, `prune`
+  met de regels van 7.4.5, Kamada-Kawai. `tests/roos_pipeline/test_topics.py` legt de valse
+  vrienden vast (82 passed).
+- Valse vrienden gevonden op steekproeven en weggelaten: "dans" (Frans "in"), "les", "cours",
+  "course" (of course), "soirée", "photo", "gym", "boeken"; links weggehaald (Spotify, Garmin).
+- Eerst "zelfde dag" geprobeerd: 105 van 105 lijnen, dikste = de grootste onderwerpen
+  (klimmen–werk 320 dagen). Roos koos daarop "zelfde bericht": 87 lijnen, dichtheid 0.83.
+- Top 15: Benji (576), werk (512), klimmen (439), hardlopen (433), vakantie (278), fietsen,
+  lezen, koken, yoga, studie, zwemmen, film, sauna & massage, uit eten, wandelen (81).
+  Sterkst: klimmen–werk 68, hardlopen–klimmen 65, Benji–werk 62. Zichtbare clusters:
+  klimmen–yoga, fietsen–vakantie, werk–studie.
+
+### Still open (Roos)
+- [ ] De grootste onderwerpen hebben nog steeds de dikste lijnen: welke dunne lijn verrast, en
+  houdt die stand als je vijf berichten ervan leest? (§7.4.13 vraag 11)
+- [ ] "vélo" is ook vervoer, "km" ook fietsen: telt fietsen/hardlopen te veel?
+- [ ] Eigen titel/claim.
+
+## 2026-11-12 — roos_07.4 visualisatie 2 (cel 26): een verhaal erin, betweenness?
+
+- Feedback: de plekkengraaf heeft nog geen verhaal. Roos wil de hele relatieperiode (zodat
+  Nieuwegein erin komt) en vraagt of betweenness helpt. Haar vragen: welke plekken laten we
+  Benji zien, welke spelen een grote rol, welke moeten we (her)ontdekken, waar willen we wonen?
+- Nagerekend (kladscript, niets in de notebook veranderd): betweenness op plekken volgt vooral
+  het aantal dagen (Spearman 0.85 op alle 114 plekken, 0.80 op de gesnoeide 22). Top 3 = Utrecht,
+  Parijs, Amsterdam, net als bij dagen. Uitschieters alleen in de ongesnoeide graaf: IJsselstein
+  (8 dagen, 8e in betweenness) en Montfoort (2 dagen, 10e). In de gesnoeide graaf zijn ze weg.
+- Laatst genoemd: Dinant (mrt 2024), Corsica (aug 2024), Barcelona (okt 2024), Lyon (dec 2024).
+- Visualisatie 4 (§7.4.8) is al de hele periode met Nieuwegein.
+
+### Still open (Roos)
+- [ ] Welke van de vijf vragen wordt de ene vraag van dit plaatje? Welke kan de chat
+  beantwoorden ("genoemd") en welke niet ("willen", "laten zien")?
+- [ ] Wat hebben IJsselstein en Montfoort gemeen, en waarom liggen ze "tussen" andere plekken?
+- [ ] Visualisatie 2 vervangen, of visualisatie 4 het verhaal-plaatje maken?
+
+## 2026-11-12 (2) — roos_06.6: Roos en Louis in het Frans, trigrammen (nieuwe notebook)
+
+- Vraag (Roos): nieuwe notebook `roos_06.6-high-dimensionality-plot`, high-dimensional plot van
+  alle Franse berichten van Roos en Louis op basis van trigrammen; verschil in communicatie?
+- Gebouwd (Claude): methode van 6.2 op eigen chat. Alle Franse berichten (`language == "fr"`,
+  alle data), `StripQuotedReply`, links eruit, chunks van `settings.TRIGRAM_CHUNK_CHARS` = 1000
+  tekens per auteur, gebalanceerd (221 per persoon; Roos schreef ~6x zoveel Frans), Manhattan +
+  PCA, silhouette vs. geschudde labels, ook binnen elke periode, en de "alleen letters"-check.
+  Nieuw in settings: `TRIGRAM_CHUNK_CHARS`, `NOT_A_LETTER_PATTERN`, `N_LABEL_SHUFFLES`.
+- Uitkomsten: silhouette per auteur 0.034 (geschud 0.000); binnen voor de verhuizing 0.082,
+  erna 0.040. Alleen letters: 0.026 / 0.069 / 0.029. In het plaatje scheidt de **tweede**
+  component (7% variantie) ons: 203 van 221 chunks per persoon aan de eigen kant. De eerste
+  (~60%) hangt samen met de datum (Spearman -0.34), niet met wie.
+- Gewoontes (per bericht): spatie voor ? of ! Louis 83%, Roos 5%; "ca" zonder ç Louis 35%,
+  Roos 4%; krul-apostrof allebei (88% / 99%); "un peu" vaker bij Roos, "oui"/"bien"/"tout"/"en"
+  vaker bij Louis. Louis's berichten zijn korter (mediaan 20 vs. 35 tekens).
+- Auteur en periode overlappen (Roos's Frans vooral voor, Louis's vooral na de verhuizing).
+
+### Still open (Roos)
+- [ ] Eigen verwachting invullen bovenaan (eigenlijk vóór het lezen van de uitkomsten).
+- [ ] "What I found" schrijven (6 vragen in de notebook): welk verschil is communicatie, welk
+  alleen typen? Waarom ziet het plaatje er duidelijk uit terwijl de silhouette klein is?
+- [ ] Chunkgrootte 1000 is een startpunt: wat doet de silhouette bij 500 of 2000?
+
+## 2026-11-12 (2) — roos_07.4 §7.4.13: "Van onderweg naar thuis"
+
+- Vraag (Roos, eigen specificatie): 5 steden (Parijs incl. Gare du Nord, Amsterdam, Utrecht,
+  Zoetermeer, Nieuwegein) × 6 thema's: onderweg = reizen, klimmen & sport, eten & uitgaan;
+  thuis = Benji & kind, wonen, familie (werk en vakantie weg). Koppeling = "gesprekje" (het
+  bericht + de 3 erna). share = gesprekjes met thema / berichten met plek; thuis-score = thuis
+  / alles. Lijnen < 8% weg, percentages alleen bij Parijs en Nieuwegein. Geen tijdlijn, geen
+  betweenness.
+- De `script/`-map, PHASES, PLACE_RE, THEMES en HALO uit haar instructie bestaan niet in deze
+  repo. Hergebruikt: `UnmergeMessages`, `CanonicalAuthor`, `settings.PLACES`,
+  `TOPIC_PATTERNS` (climbing, running, child), `ACTIVITY_TOPICS` (fietsen, zwemmen, yoga,
+  wandelen, uit eten, feest & borrel), `BasePlot`/`PlotSettings`, `Paths().figures`.
+  Nieuw: `settings.HOME_*`, `roos_pipeline/home.py` (`theme_shares`, `HomeAwayPlot`, `HALO`),
+  `tests/roos_pipeline/test_home.py` (87 passed). PNG: `figures/pipeline/onderweg_naar_thuis.png`.
+- Uitkomst (thuis-score): Parijs 25% (518 berichten), Amsterdam 32%, Utrecht 39%, Zoetermeer
+  51% (88), Nieuwegein 73% (60). Nieuwegein: Benji & kind 35%, wonen 27%. Zoetermeer: familie
+  27%, maar ook reizen 24%.
+
+### Still open (Roos)
+- [ ] Ondertitel (nu een placeholder): welke zin, in je eigen woorden?
+- [ ] Nieuwegein rust op 60 berichten: hoe stevig is 73%? Lees vijf gesprekjes per lijn die je
+  wilt claimen (Nieuwegein–wonen, Zoetermeer–familie).
+- [ ] Themalijsten zijn kandidaten: "gare" (ook in Gare du Nord), "maison" (ook "à la maison"),
+  "km" en klimgraden in sport. Steekproef nodig.
+- [ ] De export loopt tot 8 sep 2026, niet nov 2026.
+
+## 2026-11-12 (3) — §7.4.13: ondertitel, "THUIS MET KIND", en een shuffle-test
+
+- Roos's teksten: kolomkop rechts "THUIS MET KIND", pijltekst "hoe verder naar rechts, hoe
+  meer de gesprekken gaan over thuis met kind", ondertitel = haar drie zinnen (de reis van
+  onze relatie ... met hulp van opa en oma in Zoetermeer).
+- Test (`home.place_talks`, `home_gap`, `NullDistribution`, 10.000 shuffles, eenzijdig):
+  thuis-score Nieuwegein min Parijs/Amsterdam/Utrecht samen = **+40 procentpunt**. Per
+  bericht (55 vs 1.174): 0 van 10.000 shuffles halen het, p < 0,0001. Per dag (42 vs 646,
+  tegen clustering van berichten op één dag): ook 0 van 10.000, p < 0,0001. Berichten met
+  twee plekken weggelaten. 89 tests passed.
+
+### Still open (Roos)
+- [ ] De ondertitel claimt drie dingen: "sinds de komst van Benji" (tijd, niet getest, het
+  plaatje heeft geen tijdas), Nieuwegein = wonen + kind (getest, al zegt de test niets over
+  de woordenlijsten), "met hulp van opa en oma" (Zoetermeer heeft familie 27%, maar
+  "familie genoemd" is nog geen "hulp"). Welke houd je, en hoe onderbouw je de andere?
+- (later dezelfde dag) Schudtest als tekst in de figuren gezet (`write_shuffle_test`): linkerpaneel
+  van de hoofdfiguur en beide panelen van "letters only". De schudtest-cel staat nu vóór het
+  plaatje. Plan voor een tweede figuur (stijlkaart, gemaskeerde tf-idf-trigrammen per kwartaal)
+  voorgelegd; wacht op Roos's keuzes (map, stopwoordlijsten, maskeren, titel na de toetsen).
+
+## 2026-11-12 (3) — roos_06.6 §6.6.7: stijlkaart (gemaskeerde trigrammen, Roos en Louis door de tijd)
+
+- Vraag (Roos): figuur naar voorbeeld "Roos en Louis groeien naar elkaars Frans toe", met haar
+  eigen stappen (Frans via stopwoorden ≥60%, units < 5 min en ≥ 8 woorden, fragmenten van 15,
+  inhoudswoorden → "x", 12×40 fragmenten per persoon per kwartaal, tf-idf char_wb + PCA,
+  halfjaargemiddelden, Spearman + permutatietoets).
+- Roos's keuzes: code tijdelijk in `scripts/stijlkaart.py` (naar `roos_pipeline/` na goedkeuring);
+  stopwoordlijsten zelf uitgeschreven; maskeren laat leestekens/spaties staan; teksten pas
+  kiezen na de toetsen.
+- Hergebruikt: `UnmergeMessages`, `CanonicalAuthor`, `sessionize`/`merge_messages`,
+  `settings.LINK_PATTERN`, `settings.SEED`. Nieuw: systeemtekst weg (oproepen, weggelaten,
+  bewerkt, verwijderd), apostrofs gelijk, dubbele berichten na Unmerge weg.
+- Uitkomsten: fragmenten Roos 19.013, Louis 2.378 (Louis eerste kwartalen ~65 → overlappende
+  steekproeven). Assen 10% + 6% = 16% variantie; richting klopte zonder omklappen. Roos omhoog
+  (spreektaal) ρ = 0.92, Louis naar links ρ = −0.85, beide p < 0.001; overeenkomst 0.65 (2023Q4)
+  → 0.86 (2026Q3), ρ = 0.83, p = 0.002. Figuur: figures/pipeline/frans_van_roos_en_louis.png.
+
+### Still open (Roos)
+- [ ] Rechterkant x-as: ladingen tonen vooral `;)`, ` : `, ` ! ` en aanhalingstekens; van
+  "Engelse resten" alleen `or`. Label houden of aanpassen?
+- [ ] Ondertitel "geleerd van Louis" is een oorzaak; de toetsen laten alleen samen veranderen zien.
+- [ ] Ondertitel "Louis laat zijn Engels los": past bij de as, maar het gaat om Franse
+  berichten; Engels in zijn hele chat is niet gemeten.
+- [ ] Na goedkeuring: verhuizen naar `roos_pipeline/`, tests toevoegen.
+
+## 2026-11-13 — §7.4.13: nieuwe titel, uitleg en schudtest onder het plaatje
+
+- Roos's teksten: titel "De reis van onze relatie: van spontane op pad naar samen thuis.";
+  eerste regel van de ondertitel weg; komma na "Benji" weg.
+- Onder het plaatje (`HomeAwayPlot(caption=...)`, nieuw): drie alinea's, (1) stippen en
+  lijnen, (2) de twee groepen thema's en de woordenlijsten met voorbeeldwoorden, (3) de
+  schudtest met de echte getallen (+40 procentpunt, 0 van 10.000, p < 0,0001, per dag ook 0).
+- Volgorde in de notebook: tabel → schudtest + nulplaatje → het plaatje (de test moet eerst
+  draaien, want de uitkomst staat in de tekst eronder). 89 tests passed.
+
+### Still open (Roos)
+- [ ] "van spontane op pad": bedoeld, of "spontaan"?
+- [ ] De drie claims in de ondertitel (zie 2026-11-12 (3)) staan er nog.

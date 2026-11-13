@@ -117,9 +117,16 @@ flowchart LR
     p_config_toml[("config.toml")]
     p_data_processed[("data/processed/")]
     p_1_messages_parquet[("1_messages.parquet")]
+    p_1_unmerged_parquet[("1_unmerged.parquet")]
     p_2_features_parquet[("2_features.parquet")]
+    p_2_unmerged_features_parquet[("2_unmerged_features.parquet")]
     p_3_french_stats_json[("3_french_stats.json")]
+    p_3_home_shares_parquet[("3_home_shares.parquet")]
+    p_3_home_stats_json[("3_home_stats.json")]
     p_3_language_share_parquet[("3_language_share.parquet")]
+    p_3_style_docs_parquet[("3_style_docs.parquet")]
+    p_3_style_means_parquet[("3_style_means.parquet")]
+    p_3_style_stats_json[("3_style_stats.json")]
     p_3_symptom_stats_json[("3_symptom_stats.json")]
     p_3_topic_stats_json[("3_topic_stats.json")]
     p_3_weekly_french_parquet[("3_weekly_french.parquet")]
@@ -134,18 +141,32 @@ flowchart LR
     p_config_toml --> prepare
     p_data_processed --> prepare
     prepare --> p_1_messages_parquet
+    prepare --> p_1_unmerged_parquet
     p_1_messages_parquet --> features
+    p_1_unmerged_parquet --> features
     features --> p_2_features_parquet
+    features --> p_2_unmerged_features_parquet
     p_2_features_parquet --> aggregate
+    p_2_unmerged_features_parquet --> aggregate
     aggregate --> p_3_french_stats_json
+    aggregate --> p_3_home_shares_parquet
+    aggregate --> p_3_home_stats_json
     aggregate --> p_3_language_share_parquet
+    aggregate --> p_3_style_docs_parquet
+    aggregate --> p_3_style_means_parquet
+    aggregate --> p_3_style_stats_json
     aggregate --> p_3_symptom_stats_json
     aggregate --> p_3_topic_stats_json
     aggregate --> p_3_weekly_french_parquet
     aggregate --> p_3_weekly_symptoms_parquet
     aggregate --> p_3_weekly_topics_parquet
     p_3_french_stats_json --> figures
+    p_3_home_shares_parquet --> figures
+    p_3_home_stats_json --> figures
     p_3_language_share_parquet --> figures
+    p_3_style_docs_parquet --> figures
+    p_3_style_means_parquet --> figures
+    p_3_style_stats_json --> figures
     p_3_symptom_stats_json --> figures
     p_3_topic_stats_json --> figures
     p_3_weekly_french_parquet --> figures
@@ -157,7 +178,7 @@ flowchart LR
     classDef code fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
     class main,prepare,features,aggregate,figures,plots,settings code
-    class p_config_toml,p_data_processed,p_1_messages_parquet,p_2_features_parquet,p_3_french_stats_json,p_3_language_share_parquet,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
+    class p_config_toml,p_data_processed,p_1_messages_parquet,p_1_unmerged_parquet,p_2_features_parquet,p_2_unmerged_features_parquet,p_3_french_stats_json,p_3_home_shares_parquet,p_3_home_stats_json,p_3_language_share_parquet,p_3_style_docs_parquet,p_3_style_means_parquet,p_3_style_stats_json,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
 ```
 <!-- atlas-flowchart:end -->
 

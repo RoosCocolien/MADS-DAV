@@ -1,6 +1,11 @@
 """Stage 1 — prepare: the raw export, cleaned into one row per message.
 
     export (csv) -> CanonicalAuthor -> LocalTimestamp -> SortValues -> 1_messages.parquet
+                 -> UnmergeMessages -> CanonicalAuthor -> Filter   -> 1_unmerged.parquet
+
+The second file is for figures 7 and 8 (lessons 6 and 7): the export sometimes glues
+several messages into one row, and those notebooks split them back apart. Figures 1-6
+keep `1_messages`, so their numbers stay the ones they were made with.
 
 Nothing here knows about languages, topics or pregnancies; it only makes the frame
 trustworthy: one name per person, one timestamp column that every later stage can
@@ -9,17 +14,53 @@ compare against a plain date.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
 import pandas as pd
-from goad_toolkit.datatransforms import Pipeline, SortValues, TransformBase
+from goad_toolkit.datatransforms import Filter, Pipeline, SortValues, TransformBase
 from loguru import logger
 
 from roos_pipeline.settings import Paths
 from wa_analyzer.data import load_own_chat
 
 EXPECTED_AUTHORS = 2  # Roos and Louis
+
+# "‎[13-08-2023, 14:37:06] Roos: " in the middle of a row: the start of another message.
+EMBEDDED_HEADER = re.compile(
+    r"‎?\[(\d{1,2}-\d{1,2}-\d{4}, \d{2}:\d{2}:\d{2})\] ([^:\n]+): "
+)
+
+
+class UnmergeMessages(TransformBase):
+    """Split a row that holds several messages into one row per message.
+
+    After an "afbeelding weggelaten" line the export sometimes runs the next messages into
+    the same row, each behind its own "[dd-mm-yyyy, hh:mm:ss] Name: " header; 409 of those
+    headers carry a different day than the row (counted 2026-10-30). Lesson 6 cut them off
+    (`StripQuotedReply`); here they are kept, because a place in them was mentioned on the
+    day in *their* header. If a header is a quote of an older message instead, its day was
+    already counted then, and a day is only counted once per place, so nothing is doubled.
+    """
+
+    def transform(
+        self,
+        data: pd.DataFrame,
+        column: str = "message",
+        time_format: str = "%d-%m-%Y, %H:%M:%S",
+    ) -> pd.DataFrame:
+        rows = []
+        for when, author, text in zip(
+            data["ts_local"], data["author"], data[column].fillna(""), strict=True
+        ):
+            parts = EMBEDDED_HEADER.split(text)
+            rows.append((when, author, parts[0]))
+            for stamp, name, piece in zip(parts[1::3], parts[2::3], parts[3::3]):
+                rows.append((pd.to_datetime(stamp, format=time_format), name, piece))
+        out = pd.DataFrame(rows, columns=["ts_local", "author", column])
+        out[column] = out[column].str.replace("‎", "", regex=False).str.strip()
+        return out.sort_values("ts_local", kind="stable").reset_index(drop=True)
 
 
 class CanonicalAuthor(TransformBase):
@@ -85,6 +126,16 @@ def build_prepare_pipeline(aliases: dict[str, str]) -> Pipeline:
     )
 
 
+def build_unmerge_pipeline(aliases: dict[str, str]) -> Pipeline:
+    """Split glued rows apart; their headers bring back old names, so merge them again."""
+    return (
+        Pipeline()
+        .add(UnmergeMessages)
+        .add(CanonicalAuthor, aliases=aliases)
+        .add(Filter, expr="message != ''")
+    )
+
+
 def check_messages(data: pd.DataFrame) -> None:
     """Fail loudly on the mistakes that would otherwise only show up as a wrong chart.
 
@@ -102,11 +153,18 @@ def check_messages(data: pd.DataFrame) -> None:
 
 
 def run(paths: Paths, raw: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Load the export (or `raw`, in tests), clean it, and write 1_messages.parquet."""
+    """Load the export (or `raw`, in tests), clean it, write both stage-1 files."""
     raw = load_own_chat() if raw is None else raw
-    messages = build_prepare_pipeline(load_author_aliases(paths.config)).apply(raw)
+    aliases = load_author_aliases(paths.config)
+    messages = build_prepare_pipeline(aliases).apply(raw)
     check_messages(messages)
+    unmerged = build_unmerge_pipeline(aliases).apply(messages)
+    check_messages(unmerged)
     paths.processed.mkdir(parents=True, exist_ok=True)
     messages.to_parquet(paths.messages)
-    logger.success(f"prepare: {len(messages):,} messages -> {paths.messages}")
+    unmerged.to_parquet(paths.unmerged)
+    logger.success(
+        f"prepare: {len(messages):,} messages -> {paths.messages}; "
+        f"{len(unmerged):,} after splitting -> {paths.unmerged}"
+    )
     return messages
