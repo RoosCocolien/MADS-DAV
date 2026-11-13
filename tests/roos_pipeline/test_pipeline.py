@@ -14,10 +14,12 @@ import pandas as pd
 import pytest
 
 from roos_pipeline import aggregate, features, figures, prepare
-from roos_pipeline import settings
-from roos_pipeline.settings import Paths
+from roos_pipeline.results import FrenchStats, SymptomStats
+from roos_pipeline.settings import TESTS, TIMELINE, Limits, Paths, TopicBalanceTest
 
 matplotlib.use("Agg")
+
+FAST = TopicBalanceTest(n_shuffle=200)  # enough shuffles to test the code, not the chat
 
 
 @pytest.fixture
@@ -31,7 +33,7 @@ def paths(tmp_path, aliases) -> Paths:
 def test_stages_run_one_after_another(paths, fake_chat):
     prepare.run(paths, raw=fake_chat)
     features.run(paths)
-    aggregate.run(paths, n_shuffle=200)
+    aggregate.run(paths, TESTS.with_n_shuffle(200))
 
     weekly = pd.read_parquet(paths.weekly_symptoms)
     hard = weekly[weekly["group"] == aggregate.HARD]
@@ -52,7 +54,7 @@ def test_stages_run_one_after_another(paths, fake_chat):
     # Louis's 15 long-distance weeks; the week of the move and after are left out.
     french = pd.read_parquet(paths.weekly_french)
     assert len(french) == 15
-    assert (french["week"] < settings.MOVE_DATE).all()
+    assert (french["week"] < TIMELINE.move).all()
     length = json.loads(paths.french_stats.read_text())
     assert length["n_weeks_below"] == length["n_weeks_compared"] == 15
     assert length["median_difference"] == pytest.approx(-6.0)
@@ -87,7 +89,7 @@ def test_unmerged_splits_glued_rows_and_merges_their_names(paths, fake_chat):
 def test_figures_stage_needs_only_the_stage_3_files(paths, fake_chat):
     prepare.run(paths, raw=fake_chat)
     features.run(paths)
-    aggregate.run(paths, n_shuffle=200)
+    aggregate.run(paths, TESTS.with_n_shuffle(200))
     # Delete stages 1 and 2's output: redrawing must not need them.
     for stage_file in (
         paths.messages,
@@ -98,19 +100,19 @@ def test_figures_stage_needs_only_the_stage_3_files(paths, fake_chat):
         stage_file.unlink()
 
     # The fake chat is 3x by construction, so the "three times" guard passes; its
-    # places and its French are built so the guards of figures 7 and 8 pass too.
+    # places and its French are built so the guards of the les-6 and les-7 figures pass too.
     figures.run(paths)
-    assert len(list(paths.figures.glob("*.png"))) == 8
+    assert len(list(paths.figures.glob("*.png"))) == 6
 
 
 def test_three_times_guard_stops_a_stale_claim():
-    stats = {"mean_hard": 10.0, "mean_normal": 5.0}  # 2x, not 3x
-    with pytest.raises(ValueError, match="three times"):
+    stats = SymptomStats.model_construct(mean_hard=10.0, mean_normal=5.0)  # 2x
+    with pytest.raises(ValueError, match="drie keer"):
         figures.prepare_and_plan(stats)
 
 
 def test_familiar_language_guard_stops_a_stale_claim():
-    stats = {"wilcoxon_p_less": 0.02, "median_difference": -4.0}  # not p < 0.001
+    stats = FrenchStats.model_construct(wilcoxon_p_less=0.02, median_difference=-4.0)
     with pytest.raises(ValueError, match="no longer supports"):
         figures.familiar_language(pd.DataFrame(), stats)
 
@@ -125,19 +127,19 @@ def test_within_week_differences_needs_enough_in_both_groups():
             "n_words": [2] * 5 + [8] * 5 + [2] + [8] * 5,
         }
     )
-    diff = aggregate.within_week_differences(messages, min_per_group=5)
+    diff = aggregate.within_week_differences(messages, Limits(min_per_group=5))
     assert diff.to_dict() == {week_1: -6.0}
 
 
 def weekly_around_test(n_before: int, n_after: int) -> pd.DataFrame:
     """Weekly shares as `weekly_topics` writes them (labelled by Sunday): child 0 and
     climbing 5% before the test week, child 10% and climbing 0 from the next week on."""
-    test_week_end = settings.TEST_DATE + pd.offsets.Week(weekday=6)
+    test_week_end = TIMELINE.test + pd.offsets.Week(weekday=6)
     weeks = pd.date_range(end=test_week_end, periods=n_before + 1, freq="W-SUN")
     weeks = weeks.append(
         pd.date_range(test_week_end, periods=n_after + 1, freq="W-SUN")[1:]
     )
-    before = weeks < settings.TEST_DATE
+    before = weeks < TIMELINE.test
     return pd.DataFrame(
         {
             "week": weeks,
@@ -149,23 +151,23 @@ def weekly_around_test(n_before: int, n_after: int) -> pd.DataFrame:
 
 def test_topic_balance_leaves_out_the_test_week():
     weekly = weekly_around_test(n_before=20, n_after=15)
-    stats = aggregate.topic_balance_stats(weekly, "climbing", n_shuffle=200)
+    stats = aggregate.topic_balance_stats(weekly, "climbing", FAST)
     # 36 weeks in total; the one containing the test belongs to neither side.
-    assert (stats["n_before"], stats["n_after"]) == (20, 15)
-    assert stats["mean_gap_before"] == pytest.approx(-0.05)
-    assert stats["mean_gap_after"] == pytest.approx(0.10)
-    assert stats["shift_observed"] == pytest.approx(0.15)
+    assert (stats.n_before, stats.n_after) == (20, 15)
+    assert stats.mean_gap_before == pytest.approx(-0.05)
+    assert stats.mean_gap_after == pytest.approx(0.10)
+    assert stats.shift_observed == pytest.approx(0.15)
     # 20 weeks before -> 11 runs of 10; none reaches the after-average.
-    assert stats["n_runs"] == 11
-    assert stats["n_runs_reaching_after"] == 0
+    assert stats.n_runs == 11
+    assert stats.n_runs_reaching_after == 0
 
 
 def test_topic_balance_without_enough_weeks_for_a_run():
     weekly = weekly_around_test(n_before=4, n_after=6)
-    stats = aggregate.topic_balance_stats(weekly, "climbing", n_shuffle=200)
-    assert stats["n_runs"] == 0
-    assert stats["max_run_gap"] is None
-    assert "no time-order check" in figures.balance_text(stats)
+    stats = aggregate.topic_balance_stats(weekly, "climbing", FAST)
+    assert stats.n_runs == 0
+    assert stats.max_run_gap is None
+    assert "geen controle op de volgorde" in figures.balance_text(stats)
 
 
 @pytest.mark.parametrize(

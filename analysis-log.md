@@ -2002,3 +2002,60 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
 ### Still open (Roos)
 - [ ] "van spontane op pad": bedoeld, of "spontaan"?
 - [ ] De drie claims in de ondertitel (zie 2026-11-12 (3)) staan er nog.
+
+## 2026-11-13 (2) — roos_pipeline: één figuur per les, de rest eruit
+
+- Roos's keuze, één figuur per les, nieuwe namen in `figures/pipeline/` (.png + .svg):
+  `les_2_praat_nederlands_bars`, `les_3_baby_taking_over_climbing_time`,
+  `les_4_prepare_and_plan_distributie`, `les_5_fam_lang_fewer_words_relation`,
+  `les_6_frans_roos_louis_high_dim`, `les_7_onderweg_naar_thuis_netwerk`. Oude plaatjes weg.
+- Les 2 kreeg een ondertitel (Engels, zoals de assen en legenda): "Since the move, Dutch has
+  tripled (7% → 22%), but French still dominates (68%), while Louis learning Dutch matters
+  most: we live in the Netherlands now." Met een controle in `praat_nederlands_bars`: stopt
+  als NL na/voor niet meer afrondt op 3× of Frans na de verhuizing ≤ 50% is.
+- Weg uit de pipeline: de twee-panelen-versie (`praat_nederlands_panels`, `PeriodPanelsPlot`,
+  `PERIOD_LABELS_NL`) en "Baby is taking over" met alle sport (`sports`-flag, `running` als
+  weekkolom, de tweede balanstoets). `3_topic_stats.json` is nu één dict (klimmen), niet meer
+  per sport. Nieuw in settings: `TREND_TOPICS = ("child", "climbing")`.
+- Bewust blijven staan: code die notebooks importeren (`people.py`, `places.py`,
+  `vectors.py`, de zeven notebook-plotklassen in `plots.py`, `roos_046_shared.py`'s imports).
+- Tests: nep-chat schrijft Roos's dagelijkse bericht nu in het Engels en `dutch_rows()` voegt
+  Nederlands toe (8,5% → 25%, Frans 72%), zodat de nieuwe controle slaagt. 101 passed, ruff
+  en ty schoon. Volledige pipeline op de echte chat: 6 figuren.
+
+### Still open (Roos)
+- [ ] Ondertitel les 2: Engels gekozen om bij de grafiek te passen; liever Nederlands, net als de titel?
+- [ ] Settings herorganiseren met pydantic-klassen, en herhaalde types (`stats: dict`,
+  `dict[str, tuple[str, str]]`) een naam geven: voorstel met voorbeelden in de chat, nog niet gebouwd.
+- [ ] `roos_07.4` importeert `roos_pipeline.home`, dat bestaat niet (meer): die cel faalt.
+
+## 2026-11-13 (3) — Nederlandse figuren, settings per soort, notebook-code naar scripts/
+
+- **Alle tekst op de zes figuren is Nederlands** (Roos: het verslag is Nederlands), ook de
+  getallen (10.000; 0,25; −4,0). Les 2's ondertitel: "Ons Nederlands is sinds de verhuizing
+  verdrievoudigd (7% → 22%), maar steekt nog schril af bij het Frans (68%), terwijl Nederlands
+  leren voor Louis belangrijker is: we wonen in Nederland." Titels vertaald: "De baby neemt het
+  over", "Hoe overleef je een zwangerschap: voorbereiden en plannen.", "Vertrouwde taal heeft
+  minder woorden nodig". Les 3's y-as nu in procenten.
+- **Settings per soort** (Roos's keuze): pydantic-klassen `Timeline`, `Categories`, `Patterns`,
+  `WordLists`, `Limits`, `Grouping`, `Tests` (`ShuffleTest` → `TopicBalanceTest`, `HomeTest`),
+  `Colors` (`Palette` → één palet per figuur; `PaperPalette` → les 6 en 7), `Paths`. Elke
+  functie krijgt de klasse die hij gebruikt als parameter (`limits: Limits = LIMITS`).
+  Alle waarden automatisch vergeleken met de oude: identiek.
+- **Types met een naam**: `results.py` (de stage-3 JSON-bestanden als modellen, i.p.v.
+  `stats: dict`), `Labelled(group, pattern)` en `Side` in settings, `Layout` in
+  `scripts/roos_places.py`, `LanguagePair` in `scripts/roos_vectors.py`.
+- **Alleen-notebook-code naar `scripts/roos_*.py`**: roos_settings (platte namen voor de
+  notebooks, gedeelde waarden uit de pipeline), roos_plots, roos_places, roos_people,
+  roos_vectors; hun tests naar `tests/roos_scripts/` (lefthook draait beide mappen).
+- **roos_07.4 gerepareerd**: importeerde `roos_pipeline.home`, dat nooit gecommit is; die code
+  staat in de pipeline (`aggregate.theme_shares/place_talks/home_gap`, `plots.HomeAwayPlot`).
+  De notebook maakt nu eerst de stage-2-kolommen met `build_unmerged_feature_pipeline()`.
+  06.6 en 07.4 schrijven hun plaatje voortaan naar `figures/`, niet naar `figures/pipeline/`.
+- 101 tests passed, ruff en ty schoon, pipeline op de echte chat: zelfde getallen als ervoor.
+- Alle 11 notebooks die code uit roos_pipeline/scripts gebruiken draaien foutloos (03.3, 04.6, 04.6a-d, 05.6, 06.5, 06.6, 07.1, 07.4; uitgevoerd op kopieën, eigen outputs onaangeraakt).
+
+### Still open (Roos)
+- [ ] Overerving of compositie voor `ShuffleTest`: "HomeTest *is* een shuffletest" of "*heeft*
+  er een"? Nu overerving; kun je die keuze verdedigen?
+- [ ] Vertalingen nalezen: klinken de titels en voetnoten als jij?

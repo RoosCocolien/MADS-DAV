@@ -36,7 +36,7 @@ from scipy.stats import rankdata
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from roos_pipeline import settings
+from scripts import roos_settings as settings
 from scripts.sessionize import merge_messages, sessionize
 
 SEED = settings.SEED

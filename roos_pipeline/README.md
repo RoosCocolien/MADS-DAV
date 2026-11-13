@@ -1,6 +1,6 @@
 # roos_pipeline
 
-My WhatsApp chat with Louis, from raw export to six figures, in one command:
+My WhatsApp chat with Louis, from raw export to six figures (one per lesson), in one command:
 
 ```bash
 uv run python -m roos_pipeline                   # all four stages, ~13 s
@@ -9,21 +9,29 @@ uv run python -m roos_pipeline --from aggregate  # aggregate + figures
 uv run pytest tests/roos_pipeline                # the tests (no real chat needed)
 ```
 
-| # | Figure | From notebook | Output |
+| Les | Figure | From notebook | Output (`figures/pipeline/`, .png + .svg) |
 |---|---|---|---|
-| 1 | Praat Nederlands met mij (two panels) | `roos_01.4`, code cell 13 | `figures/pipeline/1_praat_nederlands_panels` |
-| 2 | Praat Nederlands met mij (one axes) | `roos_02.5`, code cell 5 | `figures/pipeline/2_praat_nederlands_bars` |
-| 3 | Baby is taking over (climbing) | `roos_03.3`, code cell 6 | `figures/pipeline/3_baby_taking_over_climbing` |
-| 4 | Baby is taking over (sports) | `roos_03.3`, code cell 7 | `figures/pipeline/4_baby_taking_over_sports` |
+| 2 | Praat Nederlands met mij | `roos_02.5`, code cell 5 | `les_2_praat_nederlands_bars` |
+| 3 | Baby is taking over (climbing) | `roos_03.3`, code cell 6 | `les_3_baby_taking_over_climbing_time` |
+| 4 | How to survive a pregnancy: prepare and plan | `roos_04.6d`, code cell 11 | `les_4_prepare_and_plan_distributie` |
+| 5 | Familiar language needs fewer words | `roos_05.6`, code cell 14 | `les_5_fam_lang_fewer_words_relation` |
+| 6 | Roos en Louis groeien naar elkaars Frans toe | `roos_06.6`, code cell 19 | `les_6_frans_roos_louis_high_dim` |
+| 7 | De reis van onze relatie: van spontaan op pad naar samen thuis | `roos_07.4`, code cell 24 | `les_7_onderweg_naar_thuis_netwerk` |
 
-Figures 3 and 4 carry a statistical test underneath: the weekly gap *child share − sport
+The other versions (the two-panel "Praat Nederlands" of roos_01.4 and "Baby is taking
+over" with all sports) left the pipeline on 2026-11-13, with the code that only they used.
+
+Every text on the figures is Dutch, like the report, numbers included (10.000, 0,25).
+
+Les 2's subtitle says "verdrievoudigd" and "steekt schril af bij het Frans" in words; `praat_nederlands_bars`
+stops the pipeline if the numbers stop saying so.
+
+Les 3 carries a statistical test underneath: the weekly gap *child share − climbing
 share*, before vs. after the positive test (the test week itself left out), checked with a
 shuffle of the before/after label (10,000×) and, keeping the order of time, against every
-run of 10 consecutive weeks before the test. Same two checks as figure 5.
-| 5 | How to survive a pregnancy: prepare and plan | `roos_04.6d`, code cell 11 | `figures/pipeline/5_prepare_and_plan` |
-| 6 | Familiar language needs fewer words | `roos_05.6`, code cell 14 | `figures/pipeline/6_familiar_language_fewer_words` |
+run of 10 consecutive weeks before the test. Same two checks as les 4.
 
-Figure 6 is one dot per long-distance week (Louis's French share against his median
+Les 5 is one dot per long-distance week (Louis's French share against his median
 words per message) with the line `words = a + b · ln(share)`. Underneath: within each
 week, his French messages against his English and Dutch ones (median words, at least 5
 of each), checked with a one-sided Wilcoxon signed-rank test over the weeks.
@@ -43,7 +51,7 @@ flowchart LR
     subgraph S2["2 · features — one row per message"]
         direction TB
         f1["LanguageFeature"] --> f2["SplitAtDate<br/>move_period"]
-        f2 --> f3["RegexFeature ×3<br/>+ MentionFlag"]
+        f2 --> f3["RegexFeature ×2<br/>+ MentionFlag"]
         f3 --> f4["NormaliseText<br/>+ RegexFeature ×2<br/>+ MentionFlag"]
         f4 --> f5["RegexFeature n_words<br/>MapValues is_french"]
     end
@@ -51,19 +59,17 @@ flowchart LR
     subgraph S3["3 · aggregate — grain changes"]
         direction TB
         a1["language_share<br/>% per period"]
-        a2["weekly_topics<br/>share per week"] --> a5["child − sport, before/after test<br/>shuffle + 10-week runs"]
+        a2["weekly_topics<br/>share per week"] --> a5["child − climbing, before/after test<br/>shuffle + 10-week runs"]
         a3["daily → PregnancyWeek<br/>→ weekly_symptoms"] --> a4["fit 2 × negative binomial<br/>+ 10,000 shuffles"]
         a6["Filter Louis<br/>→ weekly_french"] --> a7["log fit<br/>+ within-week Wilcoxon"]
     end
 
     subgraph S4["4 · figures — draw only"]
         direction TB
-        g1["1 · Praat NL, panels"]
-        g2["2 · Praat NL, bars"]
-        g3["3 · Baby: climbing"]
-        g4["4 · Baby: sports"]
-        g5["5 · Prepare and plan"]
-        g6["6 · Familiar language"]
+        g2["les 2 · Praat NL"]
+        g3["les 3 · Baby: climbing"]
+        g5["les 4 · Prepare and plan"]
+        g6["les 5 · Familiar language"]
     end
 
     raw --> S1
@@ -74,9 +80,9 @@ flowchart LR
     a2 --> t2[("3_weekly_topics")]
     a5 --> t4[("3_topic_stats.json")]
     a4 --> t3[("3_symptom_stats.json")]
-    t1 --> g1 & g2
-    t2 --> g3 & g4
-    t4 --> g3 & g4
+    t1 --> g2
+    t2 --> g3
+    t4 --> g3
     t3 --> g5
     a6 --> t5[("3_weekly_french")]
     a7 --> t6[("3_french_stats.json")]
@@ -86,7 +92,7 @@ flowchart LR
     classDef mine fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
     class p3,f3,f4,f5,a6 goad
-    class p1,p2,f1,f2,a1,a2,a3,a4,a5,a7,g1,g2,g3,g4,g5,g6 mine
+    class p1,p2,f1,f2,a1,a2,a3,a4,a5,a7,g2,g3,g5,g6 mine
     class raw,m,f,t1,t2,t3,t4,t5,t6 file
 ```
 
@@ -113,6 +119,7 @@ flowchart LR
     aggregate["aggregate"]
     figures["figures"]
     plots["plots"]
+    results["results"]
     settings["settings"]
     p_config_toml[("config.toml")]
     p_data_processed[("data/processed/")]
@@ -173,18 +180,36 @@ flowchart LR
     p_3_weekly_topics_parquet --> figures
     figures --> p_figures_pipeline
     figures -. "calls, no data" .-> plots
+    aggregate -. "calls, no data" .-> results
     main -. "calls, no data" .-> settings
 
     classDef code fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
-    class main,prepare,features,aggregate,figures,plots,settings code
+    class main,prepare,features,aggregate,figures,plots,results,settings code
     class p_config_toml,p_data_processed,p_1_messages_parquet,p_1_unmerged_parquet,p_2_features_parquet,p_2_unmerged_features_parquet,p_3_french_stats_json,p_3_home_shares_parquet,p_3_home_stats_json,p_3_language_share_parquet,p_3_style_docs_parquet,p_3_style_means_parquet,p_3_style_stats_json,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
 ```
 <!-- atlas-flowchart:end -->
 
 `3_weekly_symptoms.parquet` has no arrow out: aggregate writes it, but no stage reads
-it (the figure uses `3_symptom_stats.json`; only `test_pipeline.py` opens it). `vectors` is left out: it is not part of
-the pipeline yet.
+it (the figure uses `3_symptom_stats.json`; only `test_pipeline.py` opens it). `results` holds
+the types of the stage-3 JSON files: aggregate builds them, figures reads them back.
+
+## What is *not* in here
+
+`roos_pipeline/` holds only the code of the six figures (Roos's rule, 2026-11-13). What
+only the notebooks use lives in `scripts/`, with the `roos_` prefix so it is never
+mistaken for the teacher's files there:
+
+| File | For | Tests |
+|---|---|---|
+| `scripts/roos_settings.py` | the notebooks' flat settings (`settings.MOVE_DATE`, `settings.PLACES`, ...); every value the pipeline also uses is taken from `roos_pipeline.settings` | `tests/roos_scripts/test_topics.py` |
+| `scripts/roos_plots.py` | the plot classes of roos_03.3 and roos_04.6 | |
+| `scripts/roos_places.py`, `scripts/roos_people.py` | lesson 7's graphs (roos_07.4) | `tests/roos_scripts/` |
+| `scripts/roos_vectors.py` | lesson 6's embeddings (roos_06.5, roos_06.6) | `tests/roos_scripts/` |
+
+The notebooks import pipeline code from `roos_pipeline` directly when they use the same
+step (`UnmergeMessages`, `EventMarker`, `theme_shares`, ...), so the two cannot drift
+apart. Lefthook runs both test folders.
 
 The chart is not drawn by hand any more: on every commit that touches
 `roos_pipeline/*.py`, lefthook runs `tools/roos_atlas_flowchart.py`, which reads atlas's
@@ -214,7 +239,7 @@ From **goad_toolkit** (installed with `uv`, pinned in `uv.lock`):
   in, `transform(data, **params) -> DataFrame`. Its `__call__` first checks that a
   `column=` parameter exists in the frame, then calls `transform` with the parameters
   given at construction. Every step in this pipeline is one of these.
-- Figure 6's line is goad's **`RegPlot`** with `logx=True`: the docstring's point, that
+- Les 5's line is goad's **`RegPlot`** with `logx=True`: the docstring's point, that
   the choice of fit is a claim about the relationship, is why the line is the log of x
   (roos_05.6 §5.6.5) and not seaborn's default straight one.
 - **`Pipeline`**: holds steps *as classes plus parameters* (`add` does not run
@@ -240,20 +265,41 @@ My classes:
 | `LocalTimestamp` | `TransformBase` | prepare | string → the phone's wall-clock time |
 | `LanguageFeature` | `TransformBase` | features | en/nl/fr per message, "unknown" under 3 characters |
 | `SplitAtDate` | `TransformBase` | features | before/after the move |
-| `MentionFlag` | `TransformBase` | features | count → 0/1 flag; several columns → OR (`sports`) |
+| `MentionFlag` | `TransformBase` | features | count → 0/1 flag; several columns → OR (`either`) |
 | `NormaliseText` | `TransformBase` | features | lowercase, no accents, for the symptom patterns |
 | `PregnancyWeek` | `TransformBase` | aggregate | pregnancy week of a date (on days, not messages) |
-| `PeriodPanelsPlot` | `BasePlot` | figures | one bar panel per period (figure 1) |
-| `LabelledBarPlot` | `BarPlot` (scripts) | figures | the teacher's bar chart + values on the bars (figure 2) |
-| `TopicTrendPlot` | `BasePlot` | figures | grey weeks, coloured trend, event markers (figures 3, 4) |
-| `PeakLabelledCurves` | `BasePlot` | figures | curves labelled at their peak (figure 5) |
+| `LabelledBarPlot` | `BarPlot` (scripts) | figures | the teacher's bar chart + values on the bars (les 2) |
+| `TopicTrendPlot` | `BasePlot` | figures | grey weeks, coloured trend, event markers (les 3) |
+| `PeakLabelledCurves` | `BasePlot` | figures | curves labelled at their peak (les 4) |
+| `StyleMapPlot` | `BasePlot` | figures | the style map of our French (les 6) |
+| `HomeAwayPlot` | `BasePlot` | figures | places between on-the-road and home themes (les 7) |
 
-`RiseDeclinePlot`, `DistributionDiffPlot`, `RidgelinePlot`, `ViolinPlot`,
-`BeforeAfterDensityPlot`, `DotStripPlot` and `EventMarker` were mine too; they moved
-here from `scripts/plots.py` unchanged, and the notebooks now import them from
-`roos_pipeline.plots`.
+`EventMarker` (`BasePlot`) was written for roos_03.3; `TopicTrendPlot` is built from it.
 
-Every date, regex and colour lives in `settings.py`, and nowhere else.
+## Settings and types
+
+Every date, regex, colour and path lives in `settings.py`, and nowhere else, as
+pydantic classes per kind (2026-11-13):
+
+| Class | Kind | Inherits |
+|---|---|---|
+| `Timeline` | the story's dates, pregnancy weeks | `Frozen` |
+| `Categories` | authors, languages, periods, the two topics of les 3 | `Frozen` |
+| `Patterns` | every regex | `Frozen` |
+| `WordLists` | stopwords, function words, apostrophes, axis markers | `Frozen` |
+| `Limits` | thresholds: what counts, what is left out | `Frozen` |
+| `Grouping` | windows, fragment sizes, merged quarters | `Frozen` |
+| `ShuffleTest` → `TopicBalanceTest`, `HomeTest` | the shuffle tests: every test has `n_shuffle` and `seed` | `Frozen` |
+| `Palette` → `BarsPalette`, `TrendPalette`, `PlanPalette`, `FamiliarPalette`, `PaperPalette` → `StylePalette`, `HomePalette` | one palette per figure; every palette has the greys | `Frozen` |
+| `Paths` | where each stage reads and writes | `Frozen` |
+
+`Frozen` makes every settings object read-only. A function says which settings it uses in
+its signature, e.g. `weekly_french(louis, limits: Limits = LIMITS, timeline: Timeline =
+TIMELINE)`; a test passes its own (`TESTS.with_n_shuffle(200)`).
+
+Named types: `Labelled(group, pattern)` and `Side` (onderweg/thuis) in `settings.py`;
+the stage-3 JSON files as models in `results.py` (`SymptomStats`, `HomeStats`, ...), so
+`stats.mean_hard` replaces `stats["mean_hard"]` and ty catches a typo.
 
 ## Which check catches which mistake
 
@@ -263,7 +309,7 @@ Every date, regex and colour lives in `settings.py`, and nowhere else.
 | wrong type, e.g. calling `.rename` on something that may be a DataFrame | `ty` (lefthook) | every commit |
 | a step computes the wrong number (week boundaries, OR counted twice, regex matches the wrong word) | `pytest`, unit tests (lefthook, when this folder changes) | commit |
 | stages don't fit together; a stage secretly needs an earlier file | `pytest`, `test_pipeline.py` | commit |
-| a new export brings a third display name; the hard weeks aren't 10; the subtitle's "three times" no longer holds; figure 6's "p < 0.001" no longer holds | checks inside the pipeline (`check_messages`, `symptom_stats`, `prepare_and_plan`, `familiar_language`) | every run, on the real data |
+| a new export brings a third display name; the hard weeks aren't 10; a claim in words on a figure ("verdrievoudigd", "drie keer", "p < 0,001", the trends of les 6 and 7) no longer holds | checks inside the pipeline (`check_messages`, `symptom_stats`, and each figure function) | every run, on the real data |
 | a chart that is correct but misleading or ugly (overlapping labels, a doubled axis label) | **looking at it** | after every run |
 
 The tests run on a fake chat built in `tests/roos_pipeline/conftest.py`, never on the

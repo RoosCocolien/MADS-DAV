@@ -13,7 +13,6 @@ import pandas as pd
 import pytest
 from goad_toolkit.datatransforms import Pipeline
 
-from roos_pipeline import settings
 from roos_pipeline.features import (
     LanguageFeature,
     MentionFlag,
@@ -21,6 +20,7 @@ from roos_pipeline.features import (
     normalise,
 )
 from roos_pipeline.prepare import CanonicalAuthor, LocalTimestamp, check_messages
+from roos_pipeline.settings import CATEGORIES, PATTERNS, TIMELINE
 
 # --- prepare -----------------------------------------------------------------------
 
@@ -57,28 +57,28 @@ def test_short_messages_get_no_language():
     data = pd.DataFrame({"message": ["Ok", "Ik hou van je, tot vanavond", None]})
     out = (
         Pipeline()
-        .add(LanguageFeature, column="message", languages=settings.LANGUAGES)
+        .add(LanguageFeature, column="message", languages=list(CATEGORIES.languages))
         .apply(data)
     )
     assert out["language"].tolist() == ["unknown", "nl", "unknown"]
 
 
-def test_sports_counts_a_message_once():
+def test_either_counts_a_message_once():
     data = pd.DataFrame(
-        {"climbing": [1.0, 0.0, 1.0, 0.0], "running": [0.0, 2.0, 1.0, 0.0]}
+        {"nausea": [True, False, True, False], "fatigue": [False, True, True, False]}
     )
     out = (
         Pipeline()
-        .add(MentionFlag, columns=["climbing", "running"], feature="sports")
+        .add(MentionFlag, columns=["nausea", "fatigue"], feature="either")
         .apply(data)
     )
-    assert out["sports"].tolist() == [1.0, 1.0, 1.0, 0.0]
+    assert out["either"].tolist() == [1.0, 1.0, 1.0, 0.0]
 
 
 def test_mention_flag_fails_loudly_on_a_missing_column():
-    data = pd.DataFrame({"climbing": [1.0]})
+    data = pd.DataFrame({"nausea": [True]})
     with pytest.raises(ValueError, match="do not exist"):
-        MentionFlag(columns=["climbing", "runing"], feature="sports")(data)
+        MentionFlag(columns=["nausea", "fatigeu"], feature="either")(data)
 
 
 @pytest.mark.parametrize(
@@ -92,15 +92,15 @@ def test_mention_flag_fails_loudly_on_a_missing_column():
     ],
 )
 def test_pregnancy_week_boundaries(day_offset, week):
-    data = pd.DataFrame({"ts_local": [settings.PREGNANCY_START + day_offset]})
-    out = PregnancyWeek(start=settings.PREGNANCY_START)(data)
+    data = pd.DataFrame({"ts_local": [TIMELINE.pregnancy_start + day_offset]})
+    out = PregnancyWeek(start=TIMELINE.pregnancy_start)(data)
     assert out["pregnancy_week"].iloc[0] == week
 
 
 def test_hard_weeks_are_ten_and_start_after_the_test():
-    assert len(settings.HARD_WEEKS) == 10
-    hard_start = settings.PREGNANCY_START + pd.Timedelta(weeks=settings.HARD_WEEKS[0])
-    assert hard_start > settings.TEST_DATE
+    assert len(TIMELINE.hard_weeks) == 10
+    hard_start = TIMELINE.pregnancy_start + pd.Timedelta(weeks=TIMELINE.hard_weeks[0])
+    assert hard_start > TIMELINE.test
 
 
 # --- regexes: what each pattern must and must not match ----------------------------
@@ -122,7 +122,7 @@ def matches(pattern: str, text: str) -> bool:
     ],
 )
 def test_symptom_patterns(text, symptom, expected):
-    assert matches(settings.SYMPTOM_PATTERNS[symptom], normalise(text)) is expected
+    assert matches(PATTERNS.symptoms[symptom], normalise(text)) is expected
 
 
 @pytest.mark.parametrize(
@@ -144,4 +144,4 @@ def test_symptom_patterns(text, symptom, expected):
     ],
 )
 def test_topic_patterns(text, topic, expected):
-    assert matches(settings.TOPIC_PATTERNS[topic], text) is expected
+    assert matches(PATTERNS.topics[topic], text) is expected

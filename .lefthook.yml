@@ -25,8 +25,8 @@ pre-commit:
     # Roos's pipeline: run its tests only when the pipeline, its tests or the
     # project's dependencies change, so commits on notebooks stay fast.
     roos-pipeline-tests:
-      glob: '{roos_pipeline/*.py,tests/roos_pipeline/*.py,pyproject.toml,uv.lock}'
-      run: uv run pytest tests/roos_pipeline -q
+      glob: '{roos_pipeline/*.py,scripts/roos_*.py,tests/roos_pipeline/*.py,tests/roos_scripts/*.py,pyproject.toml,uv.lock}'
+      run: uv run pytest tests/roos_pipeline tests/roos_scripts -q
     # Redraw "The flowchart as atlas reads it" in roos_pipeline/README.md from what
     # atlas reads in the code, and add the redrawn README to this same commit.
     roos-atlas-flowchart:

@@ -1,12 +1,12 @@
-"""Unit tests for the lesson 7 steps (`roos_pipeline/places.py`), on hand-made rows."""
+"""Unit tests for the lesson 7 steps (`scripts/roos_places.py`), on hand-made rows."""
 
 from __future__ import annotations
 
 import networkx as nx
 import pandas as pd
 
-from roos_pipeline.places import (
-    UnmergeMessages,
+from roos_pipeline.prepare import UnmergeMessages
+from scripts.roos_places import (
     author_shares,
     circle_layout,
     lane_layout,

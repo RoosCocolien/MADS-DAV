@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from roos_pipeline import settings
+from roos_pipeline.settings import TESTS, TIMELINE
 
 
 def message(when: object, author: str, text: str) -> dict:
@@ -34,16 +34,17 @@ def fake_chat() -> pd.DataFrame:
     messages and 6 eight-word English ones, on a Tuesday, so each lands in one
     calendar week. His French is 6 words shorter (median) in every one of them.
 
-    After the birth: places with themes (figure 7, `place_rows`) and a year and a half
-    of French from both (figure 8, `french_rows`).
+    After the birth: places with themes (les 7, `place_rows`) and a year and a half
+    of French from both (les 6, `french_rows`). Roos's daily message is English, so the
+    Dutch is only what `dutch_rows` adds: it triples after the move (les 2).
     """
-    start = settings.PREGNANCY_START
+    start = TIMELINE.pregnancy_start
     rows = []
     for week in range(-2, 17):
         for day in range(7):
             when = start + pd.Timedelta(weeks=week, days=day, hours=12)
-            rows.append(message(when, "Roos", "hallo hoe gaat het"))
-        n_tired = 3 if week in settings.HARD_WEEKS else 1
+            rows.append(message(when, "Roos", "hello how are you"))
+        n_tired = 3 if week in TIMELINE.hard_weeks else 1
         for i in range(n_tired):
             when = start + pd.Timedelta(weeks=week, days=1, hours=8 + i)
             rows.append(message(when, "Louis Ancien", "je suis crevée"))
@@ -58,16 +59,16 @@ def fake_chat() -> pd.DataFrame:
             rows.append(
                 message(when, "Louis", "that sounds like a lovely idea for saturday")
             )
-    before_move = settings.MOVE_DATE - pd.Timedelta(days=2)
+    before_move = TIMELINE.move - pd.Timedelta(days=2)
     rows += [
         message(before_move, "~Louis Chessé", "we go climbing tomorrow"),
         message(before_move, "Louis", "Ok"),
     ]
-    return pd.DataFrame(rows + place_rows() + french_rows())
+    return pd.DataFrame(rows + place_rows() + french_rows() + dutch_rows())
 
 
-# After Benji's birth, so none of figures 1-6's periods or weeks see these rows.
-PLACES_START = settings.BIRTH_DATE + pd.Timedelta(days=21)
+# After Benji's birth, so none of the les 2-5 figures' periods or weeks see these rows.
+PLACES_START = TIMELINE.birth + pd.Timedelta(days=21)
 FRENCH_START, FRENCH_END = pd.Timestamp("2025-07-01"), pd.Timestamp("2026-12-31")
 
 # One place a day, each message followed by three without a theme, so a gesprekje
@@ -82,7 +83,8 @@ PLACE_MESSAGES = (
 )
 FILLERS = ("ok", "top", "goed")
 
-# French in four styles, after the axis markers of figure 8 (settings.STYLE_MARKERS).
+# French in four styles, after the axis markers of the les-6 figure
+# (`WORD_LISTS.style_markers`).
 SCHOOL = "je pense que nous avons beaucoup de livres est-ce que tu n'as pas le temps :)"
 SPOKEN = "oui ca va il faut que tu viennes quoi on se voit ce soir ou pas ? je suis la"
 LOOSE = "c'est cool ;) or pas : on verra demain ! je suis la pour toi ! bisous or pas"
@@ -107,9 +109,9 @@ def french_rows() -> list[dict]:
     Early on Roos writes school French and Louis loose French with English leftovers;
     with time t (0 -> 1) each writes more of a shared style (spoken and correct). So
     Roos moves towards spoken French, Louis away from the loose style, and the two
-    profiles become more alike: the three claims under figure 8.
+    profiles become more alike: the three claims under the les-6 figure.
     """
-    rng = np.random.default_rng(settings.SEED)
+    rng = np.random.default_rng(TESTS.style.seed)
     days = pd.date_range(FRENCH_START, FRENCH_END, freq="D")
     rows = []
     for i, day in enumerate(days):
@@ -118,6 +120,27 @@ def french_rows() -> list[dict]:
             text = rng.choice([SPOKEN, CORRECT]) if rng.random() < t else own
             rows.append(message(day + pd.Timedelta(hours=hour), author, str(text)))
     return rows
+
+
+DUTCH = "tot straks schat, ik ben er bijna"
+
+
+def dutch_rows() -> list[dict]:
+    """Dutch from Roos: 30 messages before the move, one a day in 2026 after it.
+
+    Next to everything else this is ~8% of the classified messages before the move and
+    ~25% after, while French stays above half: the subtitle of the les-2 figure. At
+    21:00, away from the place messages (20:00) and the French ones (12:00, 13:00).
+    """
+    before = [
+        message(TIMELINE.move - pd.Timedelta(days=d, hours=3), "Roos", DUTCH)
+        for d in range(3, 33)
+    ]
+    after = [
+        message(day + pd.Timedelta(hours=21), "Roos", DUTCH)
+        for day in pd.date_range("2026-01-01", periods=345, freq="D")
+    ]
+    return before + after
 
 
 @pytest.fixture

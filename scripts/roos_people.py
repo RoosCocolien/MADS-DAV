@@ -35,8 +35,8 @@ import pandas as pd
 from goad_toolkit.visualizer import BasePlot
 from matplotlib.colors import LogNorm
 
-from roos_pipeline import settings
-from roos_pipeline.places import who_names
+from scripts import roos_settings as settings
+from scripts.roos_places import Layout, who_names
 
 NAME, FAMILY = "name", "family"
 
@@ -140,9 +140,7 @@ def benji_graph(
     return graph
 
 
-def star_layout(
-    graph: nx.Graph, centre: str = settings.BENJI
-) -> dict[str, tuple[float, float]]:
+def star_layout(graph: nx.Graph, centre: str = settings.BENJI) -> Layout:
     """`centre` at (0, 0); the rest on a circle, clockwise from the top, strongest first.
 
     The position says the rank of the link to the centre, nothing else. One slot at the

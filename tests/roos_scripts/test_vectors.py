@@ -1,4 +1,4 @@
-"""Unit tests for the lesson 6 steps (`roos_pipeline/vectors.py`), on hand-made rows.
+"""Unit tests for the lesson 6 steps (`scripts/roos_vectors.py`), on hand-made rows.
 
 No embedding model here: the steps around it (quotes, units, the shuffle test) are where
 a wrong number can hide, and they run in milliseconds.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from roos_pipeline.vectors import (
+from scripts.roos_vectors import (
     StripQuotedReply,
     WeekStart,
     WordCount,

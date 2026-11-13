@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from roos_pipeline import settings
+from scripts import roos_settings as settings
 
 
 def topics_in(text: str) -> set[str]:

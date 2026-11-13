@@ -1,4 +1,4 @@
-"""Figure 8's steps: cleaning, French by stopwords, masking, fragments, the guard."""
+"""Les 6's steps: cleaning, French by stopwords, masking, fragments, the guard."""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ from roos_pipeline.features import (
     french_share,
     unique_stopwords,
 )
+from roos_pipeline.results import HomeStats, HomeTestResult, StyleStats, Trend
+from roos_pipeline.settings import ShuffleTest
 
 
 def test_noise_goes_and_every_apostrophe_is_straight():
@@ -88,25 +90,30 @@ def test_fragments_drop_a_short_remainder():
 
 
 def test_permutation_spearman_finds_a_perfect_trend():
-    rho, p = permutation_spearman(np.arange(8), np.arange(8) ** 2, n=500)
+    rho, p = permutation_spearman(
+        np.arange(8), np.arange(8) ** 2, ShuffleTest(n_shuffle=500)
+    )
     assert rho == pytest.approx(1.0)
     assert p < 0.01
 
 
 def test_style_guard_stops_a_stale_claim():
-    trend = {"rho": 0.9, "p": 0.001, "n_months": 20}
-    stats = {
-        "roos_trend": trend,
-        "louis_trend": {**trend, "rho": 0.5},  # Louis moving the wrong way
-        "similarity_rho": 0.8,
-        "similarity_p": 0.01,
-    }
+    trend = Trend(rho=0.9, p=0.001, n_months=20)
+    # model_construct: only the fields the guard reads, without checking the rest
+    stats = StyleStats.model_construct(
+        roos_trend=trend,
+        louis_trend=trend.model_copy(update={"rho": 0.5}),  # Louis the wrong way
+        similarity_rho=0.8,
+        similarity_p=0.01,
+    )
     with pytest.raises(ValueError, match="Louis"):
         figures.frans_van_roos_en_louis(pd.DataFrame(), pd.DataFrame(), stats)
 
 
 def test_home_guard_stops_a_stale_claim():
-    unit = {"gap_observed": 0.4, "p_value_greater": 0.0001}
-    stats = {"messages": unit, "days": {**unit, "p_value_greater": 0.2}}
+    unit = HomeTestResult.model_construct(gap_observed=0.4, p_value_greater=0.0001)
+    stats = HomeStats.model_construct(
+        messages=unit, days=unit.model_copy(update={"p_value_greater": 0.2})
+    )
     with pytest.raises(ValueError, match="per days"):
         figures.onderweg_naar_thuis(pd.DataFrame(), stats)

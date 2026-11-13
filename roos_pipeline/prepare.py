@@ -3,8 +3,8 @@
     export (csv) -> CanonicalAuthor -> LocalTimestamp -> SortValues -> 1_messages.parquet
                  -> UnmergeMessages -> CanonicalAuthor -> Filter   -> 1_unmerged.parquet
 
-The second file is for figures 7 and 8 (lessons 6 and 7): the export sometimes glues
-several messages into one row, and those notebooks split them back apart. Figures 1-6
+The second file is for the les-6 and les-7 figures: the export sometimes glues
+several messages into one row, and those notebooks split them back apart. Les 2-5
 keep `1_messages`, so their numbers stay the ones they were made with.
 
 Nothing here knows about languages, topics or pregnancies; it only makes the frame
@@ -22,15 +22,8 @@ import pandas as pd
 from goad_toolkit.datatransforms import Filter, Pipeline, SortValues, TransformBase
 from loguru import logger
 
-from roos_pipeline.settings import Paths
+from roos_pipeline.settings import CATEGORIES, PATTERNS, Categories, Paths
 from wa_analyzer.data import load_own_chat
-
-EXPECTED_AUTHORS = 2  # Roos and Louis
-
-# "‎[13-08-2023, 14:37:06] Roos: " in the middle of a row: the start of another message.
-EMBEDDED_HEADER = re.compile(
-    r"‎?\[(\d{1,2}-\d{1,2}-\d{4}, \d{2}:\d{2}:\d{2})\] ([^:\n]+): "
-)
 
 
 class UnmergeMessages(TransformBase):
@@ -49,12 +42,13 @@ class UnmergeMessages(TransformBase):
         data: pd.DataFrame,
         column: str = "message",
         time_format: str = "%d-%m-%Y, %H:%M:%S",
+        header: str = PATTERNS.embedded_header,
     ) -> pd.DataFrame:
         rows = []
         for when, author, text in zip(
             data["ts_local"], data["author"], data[column].fillna(""), strict=True
         ):
-            parts = EMBEDDED_HEADER.split(text)
+            parts = re.split(header, text)
             rows.append((when, author, parts[0]))
             for stamp, name, piece in zip(parts[1::3], parts[2::3], parts[3::3]):
                 rows.append((pd.to_datetime(stamp, format=time_format), name, piece))
@@ -136,16 +130,16 @@ def build_unmerge_pipeline(aliases: dict[str, str]) -> Pipeline:
     )
 
 
-def check_messages(data: pd.DataFrame) -> None:
+def check_messages(data: pd.DataFrame, categories: Categories = CATEGORIES) -> None:
     """Fail loudly on the mistakes that would otherwise only show up as a wrong chart.
 
     A new export can bring a new display name (a third phone, a rename). Without this
     check every per-person number would silently split one person in two.
     """
     authors = sorted(data["author"].unique())
-    if len(authors) != EXPECTED_AUTHORS:
+    if len(authors) != len(categories.authors):
         raise ValueError(
-            f"Expected {EXPECTED_AUTHORS} authors after merging aliases, got "
+            f"Expected {len(categories.authors)} authors after merging aliases, got "
             f"{authors}. Add the new display name to [author_aliases] in config.toml."
         )
     if data["ts_local"].isna().any():

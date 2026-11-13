@@ -2,7 +2,8 @@
 §4.6.13 reuses from §4.6.12.
 
 The dates, `normalise`, `SYMPTOM_PATTERNS` and `fit_daily` now come from `roos_pipeline`
-(2026-10-06), so the notebooks and the pipeline cannot drift apart. roos_04.6c still
+(2026-10-06; the dates and patterns via `scripts/roos_settings.py` since 2026-11-13), so
+the notebooks and the pipeline cannot drift apart. roos_04.6c still
 shows its own copy of the patterns and the fit, to explain them (§4.6.12 steps 1 and 3).
 """
 
@@ -12,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 from goad_toolkit.visualizer import PlotSettings
 
-from roos_pipeline import settings
+from scripts import roos_settings as settings
 from roos_pipeline.aggregate import aic, fit_daily, nbinom_from  # noqa: F401 (re-exported)
 from roos_pipeline.features import normalise  # noqa: F401 (re-exported)
 from wa_analyzer.data import load_own_chat

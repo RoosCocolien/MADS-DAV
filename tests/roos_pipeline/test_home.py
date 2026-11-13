@@ -1,4 +1,4 @@
-"""Figure 7's steps: a gesprekje is the message with the place and the next 3."""
+"""Les 7's steps: a gesprekje is the message with the place and the next 3."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pytest
 
 from roos_pipeline.aggregate import home_gap, place_talks, theme_shares
 from roos_pipeline.features import WithinNext, build_unmerged_feature_pipeline
+from roos_pipeline.settings import HomeTest
 
 
 def chat(*texts: str) -> pd.DataFrame:
@@ -69,7 +70,8 @@ def test_home_gap_is_place_minus_the_others_together():
     talks = pd.DataFrame(
         {"place": ["N", "N", "P", "A"], "home": [1, 1, 0, 1], "away": [0, 0, 1, 1]}
     )
-    assert home_gap(talks, "N", ("P", "A")) == pytest.approx(1.0 - 1 / 3)
+    test = HomeTest(place="N", against=("P", "A"))
+    assert home_gap(talks, test) == pytest.approx(1.0 - 1 / 3)
 
 
 def test_within_next_refuses_rows_out_of_time_order():

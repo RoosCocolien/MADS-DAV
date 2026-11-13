@@ -26,9 +26,12 @@ from goad_toolkit.datatransforms import TransformBase
 from goad_toolkit.visualizer import BasePlot
 from sklearn.feature_extraction.text import CountVectorizer
 
-from roos_pipeline import settings
+from scripts import roos_settings as settings
 from roos_pipeline.features import normalise
 from scripts.sessionize import merge_messages, sessionize
+
+# The two languages a comparison puts side by side, in the order they are drawn.
+type LanguagePair = tuple[str, str]
 
 
 class StripQuotedReply(TransformBase):
@@ -133,7 +136,7 @@ def cluster_contrast(
     cluster: str = "cluster",
     group: str = "language",
     strata: tuple[str, ...] = ("week", "length_band"),
-    pair: tuple[str, str] = ("fr", "en"),
+    pair: LanguagePair = ("fr", "en"),
     n_shuffle: int = settings.N_SHUFFLE,
     seed: int = settings.SEED,
 ) -> pd.DataFrame:
@@ -283,7 +286,7 @@ def contrast_intervals(
     units: pd.DataFrame,
     cluster: str = "cluster",
     group: str = "language",
-    pair: tuple[str, str] = ("fr", "en"),
+    pair: LanguagePair = ("fr", "en"),
     n_boot: int = 2000,
     seed: int = settings.SEED,
 ) -> pd.DataFrame:
@@ -421,7 +424,7 @@ class LanguageDumbbellPlot(BasePlot):
         self,
         contrast: pd.DataFrame,
         names: dict[int, str],
-        pair: tuple[str, str] = ("fr", "en"),
+        pair: LanguagePair = ("fr", "en"),
         colors: dict[str, str] | None = None,
         pair_labels: dict[str, str] | None = None,
     ):
@@ -469,7 +472,7 @@ class ContrastBarPlot(BasePlot):
         self,
         intervals: pd.DataFrame,
         names: dict[int, str],
-        pair: tuple[str, str] = ("fr", "en"),
+        pair: LanguagePair = ("fr", "en"),
         colors: dict[str, str] | None = None,
         pair_labels: dict[str, str] | None = None,
     ):
@@ -588,7 +591,7 @@ class ReportMapPanels(BasePlot):
         languages: np.ndarray,
         focus: str = "love",
         context: tuple[str, ...] = ("planning",),
-        pair: tuple[str, str] = ("fr", "en"),
+        pair: LanguagePair = ("fr", "en"),
         pair_labels: dict[str, str] | None = None,
         colors: dict[str, str] = settings.TOPIC_COLORS,
         extent: np.ndarray | None = None,
@@ -662,7 +665,7 @@ class TopicMapPanels(BasePlot):
         topics: np.ndarray,
         languages: np.ndarray,
         show: tuple[str, ...] = ("love", "planning"),
-        pair: tuple[str, str] = ("fr", "en"),
+        pair: LanguagePair = ("fr", "en"),
         names: dict[str, str] | None = None,
         pair_labels: dict[str, str] | None = None,
         colors: dict[str, str] = settings.TOPIC_COLORS,
@@ -724,7 +727,7 @@ class WeeklyLanguagePanels(BasePlot):
         self,
         weekly: pd.DataFrame,
         clusters: list[int],
-        pair: tuple[str, str] = ("fr", "en"),
+        pair: LanguagePair = ("fr", "en"),
         colors: dict[str, str] | None = None,
         pair_labels: dict[str, str] | None = None,
         smooth_weeks: int = settings.SMOOTH_WEEKS,

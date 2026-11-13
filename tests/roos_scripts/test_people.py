@@ -1,10 +1,10 @@
-"""Unit tests for people near Benji (`roos_pipeline/people.py`), on hand-made rows."""
+"""Unit tests for people near Benji (`scripts/roos_people.py`), on hand-made rows."""
 
 from __future__ import annotations
 
 import pandas as pd
 
-from roos_pipeline.people import (
+from scripts.roos_people import (
     benji_graph,
     mentions,
     near,

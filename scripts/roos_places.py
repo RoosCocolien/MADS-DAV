@@ -35,8 +35,11 @@ from matplotlib.artist import Artist
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Patch
 
-from roos_pipeline import settings
-from roos_pipeline.prepare import UnmergeMessages  # noqa: F401  (moved; notebooks import it here)
+from scripts import roos_settings as settings
+
+# Where each node of a graph sits: name -> (x, y). The return type of every layout
+# function here and in roos_people, and what the plot classes take as `pos`.
+type Layout = dict[str, tuple[float, float]]
 
 
 def place_days(
@@ -190,7 +193,7 @@ def lane_layout(
     min_gap: pd.Timedelta = pd.Timedelta(days=45),
     lane_height: float = 0.16,
     big_days: int = 60,
-) -> dict[str, tuple[float, float]]:
+) -> Layout:
     """x = the median day a place came up; y = a lane inside its country's band.
 
     Bands sit at y = 2, 1, 0 for France, the Netherlands and elsewhere. Within a band, the
@@ -226,7 +229,7 @@ def circle_layout(
     countries: tuple[str, ...] = ("Netherlands", "Elsewhere", "France"),
     gap: float = 1.0,
     attr: str = "country",
-) -> dict[str, tuple[float, float]]:
+) -> Layout:
     """Places on a circle, one arc per country, clockwise from the top in `countries` order.
 
     The Netherlands run down the right from the top, biggest first; France comes back up
@@ -277,7 +280,7 @@ class TimelineGraphPlot(BasePlot):
     def build(
         self,
         graph: nx.Graph,
-        pos: dict[str, tuple[float, float]],
+        pos: Layout,
         shade: tuple[pd.Timestamp, pd.Timestamp, str] | None = None,
         label_min: int = 0,
         size_per_day: float = 6.0,
@@ -394,7 +397,7 @@ class GraphPlot(BasePlot):
     def build(
         self,
         graph: nx.Graph,
-        pos: dict[str, tuple[float, float]],
+        pos: Layout,
         colors: dict[str, str],
         legend: dict[str, str],
         caption: str | None = None,

@@ -3,8 +3,7 @@
     1_messages.parquet
       -> LanguageFeature                  language            (Praat Nederlands)
       -> SplitAtDate                      move_period         (Praat Nederlands)
-      -> RegexFeature x3 -> MentionFlag   child, climbing, running, sports
-                                                              (Baby is taking over)
+      -> RegexFeature x2 -> MentionFlag   child, climbing     (Baby is taking over)
       -> NormaliseText -> RegexFeature x2 -> MentionFlag
                                           nausea, fatigue, either  (prepare and plan)
       -> RegexFeature -> MapValues        n_words, is_french  (familiar language)
@@ -38,8 +37,20 @@ from goad_toolkit.datatransforms import (
 )
 from loguru import logger
 
-from roos_pipeline import settings
-from roos_pipeline.settings import Paths
+from roos_pipeline.settings import (
+    CATEGORIES,
+    GROUPING,
+    LIMITS,
+    PATTERNS,
+    TIMELINE,
+    WORD_LISTS,
+    Categories,
+    Grouping,
+    Paths,
+    Patterns,
+    Timeline,
+    WordLists,
+)
 
 
 class LanguageFeature(TransformBase):
@@ -57,7 +68,7 @@ class LanguageFeature(TransformBase):
         column: str,
         languages: list[str],
         feature: str = "language",
-        min_chars: int = settings.MIN_CHARS,
+        min_chars: int = LIMITS.min_chars,
     ) -> pd.DataFrame:
         langid.set_languages(languages)
 
@@ -90,8 +101,8 @@ class MentionFlag(TransformBase):
 
     One class for two jobs. With one column it turns a word count into "does this
     message mention the topic at all"; the mean of that flag over a week is the
-    topic's share of the week. With several columns it is an OR: `sports` = climbing
-    OR running, so a message that mentions both still counts once.
+    topic's share of the week. With several columns it is an OR: `either` = nausea
+    OR fatigue, so a message that mentions both still counts once.
 
     A float rather than a bool, because the next stage averages it.
     """
@@ -148,7 +159,7 @@ class PregnancyWeek(TransformBase):
 class WithinNext(TransformBase):
     """True where `column` is True in this row or in one of the `window` rows after it.
 
-    The "gesprekje" of figure 7: a theme belongs to a message naming a place when it
+    The "gesprekje" of the les-7 figure: a theme belongs to a message naming a place when it
     comes up there or in the next `window` messages, whoever writes them. Rows must be
     in time order, which `1_unmerged` is (UnmergeMessages sorts it).
     """
@@ -178,18 +189,20 @@ class StripWhatsAppNoise(TransformBase):
         data: pd.DataFrame,
         column: str = "message",
         feature: str = "clean_message",
+        patterns: Patterns = PATTERNS,
+        word_lists: WordLists = WORD_LISTS,
     ) -> pd.DataFrame:
         text = data[column].fillna("").str.replace("‎", "", regex=False)
-        for pattern in (*settings.STYLE_SYSTEM_PATTERNS, settings.LINK_PATTERN):
+        for pattern in (*patterns.style_system, patterns.link):
             text = text.str.replace(pattern, " ", regex=True, flags=re.IGNORECASE)
-        quotes = settings.STYLE_APOSTROPHES
+        quotes = word_lists.apostrophes
         text = text.str.translate(str.maketrans(quotes, "'" * len(quotes)))
         data[feature] = text.str.replace(r"\s+", " ", regex=True).str.strip()
         return data
 
 
 def unique_stopwords(
-    stopwords: dict[str, frozenset[str]] = settings.STYLE_STOPWORDS,
+    stopwords: dict[str, frozenset[str]] = WORD_LISTS.stopwords,
 ) -> dict[str, frozenset[str]]:
     """Per language, only the words that are in no other language's list."""
     return {
@@ -200,10 +213,12 @@ def unique_stopwords(
     }
 
 
-def french_share(text: str, unique: dict[str, frozenset[str]]) -> float:
+def french_share(
+    text: str, unique: dict[str, frozenset[str]], letter_run: str = PATTERNS.letter_run
+) -> float:
     """Share of the recognised (unique) stopwords that are French; NaN if none is."""
     counts = dict.fromkeys(unique, 0)
-    for word in re.findall(settings.STYLE_LETTER_RUN, text.lower()):
+    for word in re.findall(letter_run, text.lower()):
         for language, words in unique.items():
             if word in words:
                 counts[language] += 1
@@ -214,7 +229,7 @@ def french_share(text: str, unique: dict[str, frozenset[str]]) -> float:
 class FrenchByStopwords(TransformBase):
     """`is_french`: at least `threshold` of the recognised stopwords are French.
 
-    Figure 8's own language rule (roos_06.6 §6.6.7), next to `language` from
+    The les-6 figure's own language rule (roos_06.6 §6.6.7), next to `language` from
     py3langid: hand-made stopword lists, only the words unique to one language.
     """
 
@@ -222,7 +237,7 @@ class FrenchByStopwords(TransformBase):
         self,
         data: pd.DataFrame,
         column: str = "clean_message",
-        threshold: float = settings.STYLE_FRENCH_SHARE,
+        threshold: float = LIMITS.french_share,
     ) -> pd.DataFrame:
         unique = unique_stopwords()
         data["french_share"] = [french_share(text, unique) for text in data[column]]
@@ -241,23 +256,29 @@ def yes_no_pattern(pattern: str) -> str:
     return "(?i)" + pattern
 
 
-def build_feature_pipeline() -> Pipeline:
-    """Every per-message column the six figures need, in dependency order."""
+def build_feature_pipeline(
+    timeline: Timeline = TIMELINE,
+    categories: Categories = CATEGORIES,
+    patterns: Patterns = PATTERNS,
+) -> Pipeline:
+    """Every per-message column of the les 2-5 figures, in dependency order."""
     pipeline = Pipeline()
-    pipeline.add(LanguageFeature, column="message", languages=settings.LANGUAGES)
+    pipeline.add(
+        LanguageFeature, column="message", languages=list(categories.languages)
+    )
     pipeline.add(
         SplitAtDate,
         name="move_period",
-        date=settings.MOVE_DATE,
-        labels=("before move", "after move"),
+        date=timeline.move,
+        labels=categories.periods,
         feature="move_period",
     )
-    for topic, pattern in settings.TOPIC_PATTERNS.items():
+    for topic in categories.trend_topics:
         pipeline.add(
             RegexFeature,
             name=f"{topic}_words",
             column="message",
-            pattern=pattern,
+            pattern=patterns.topics[topic],
             feature=f"n_{topic}_words",
             mode="count",
         )
@@ -267,14 +288,8 @@ def build_feature_pipeline() -> Pipeline:
             columns=[f"n_{topic}_words"],
             feature=topic,
         )
-    pipeline.add(
-        MentionFlag,
-        name="sports_flag",
-        columns=["climbing", "running"],
-        feature="sports",
-    )
     pipeline.add(NormaliseText, column="message")
-    for symptom, pattern in settings.SYMPTOM_PATTERNS.items():
+    for symptom, pattern in patterns.symptoms.items():
         pipeline.add(
             RegexFeature,
             name=f"{symptom}_has",
@@ -286,19 +301,19 @@ def build_feature_pipeline() -> Pipeline:
     pipeline.add(
         MentionFlag,
         name="either_flag",
-        columns=list(settings.SYMPTOM_PATTERNS),
+        columns=list(patterns.symptoms),
         feature="either",
     )
     pipeline.add(
         RegexFeature,
         name="words",
         column="message",
-        pattern=settings.WORD_PATTERN,
+        pattern=patterns.word,
         feature="n_words",
         mode="count",
     )
     # NaN for "unknown": a weekly mean then skips it, so the French share is a share
-    # of the classified messages only, like the bars of figures 1 and 2.
+    # of the classified messages only, like the bars of the les-2 figure.
     pipeline.add(
         MapValues,
         column="language",
@@ -308,15 +323,17 @@ def build_feature_pipeline() -> Pipeline:
     return pipeline
 
 
-def build_unmerged_feature_pipeline() -> Pipeline:
-    """The per-message columns of figures 7 and 8, on `1_unmerged`.
+def build_unmerged_feature_pipeline(
+    patterns: Patterns = PATTERNS, grouping: Grouping = GROUPING
+) -> Pipeline:
+    """The per-message columns of the les-7 and les-6 figures, on `1_unmerged`.
 
-    Figure 7: a flag per place and per theme (goad's `RegexFeature`), and per theme
-    whether it comes up in the message's gesprekje (`WithinNext`). Figure 8: the text
+    Les 7: a flag per place and per theme (goad's `RegexFeature`), and per theme
+    whether it comes up in the message's gesprekje (`WithinNext`). Les 6: the text
     without WhatsApp's noise, and whether it counts as French by stopwords.
     """
     pipeline = Pipeline()
-    for place, pattern in settings.HOME_PLACES.items():
+    for place, pattern in patterns.home_places.items():
         pipeline.add(
             RegexFeature,
             name=f"place_{place}",
@@ -325,7 +342,7 @@ def build_unmerged_feature_pipeline() -> Pipeline:
             feature=f"place_{place}",
             mode="has",
         )
-    for theme, (_, pattern) in settings.HOME_THEMES.items():
+    for theme, (_, pattern) in patterns.home_themes.items():
         pipeline.add(
             RegexFeature,
             name=f"theme_{theme}",
@@ -338,7 +355,7 @@ def build_unmerged_feature_pipeline() -> Pipeline:
             WithinNext,
             name=f"talk_{theme}",
             column=f"theme_{theme}",
-            window=settings.HOME_WINDOW,
+            window=grouping.home_window,
             feature=f"talk_{theme}",
         )
     pipeline.add(StripWhatsAppNoise, column="message")
