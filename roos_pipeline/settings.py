@@ -346,7 +346,7 @@ class Limits(Frozen):
     min_per_group: int = (
         5  # French and other messages each, before a week gets a median gap
     )
-    home_min_share: float = 0.08  # lines below this share are left out (les 7)
+    home_min_share: float = 0.05  # lines below this share are left out (les 7)
     french_share: float = (
         0.60  # of the recognised stopwords, for a message to be French
     )
