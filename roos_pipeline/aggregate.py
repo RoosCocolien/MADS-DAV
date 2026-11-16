@@ -278,7 +278,7 @@ def fit_daily(values: np.ndarray) -> dict:
     poisson_mu = values.mean()  # the Poisson MLE is the sample mean
     poisson_ll = stats.poisson.logpmf(values, poisson_mu).sum()
 
-    def nll(theta):  # log-parameters keep mu and r positive
+    def nll(theta: np.ndarray) -> float:  # log-parameters keep mu and r positive
         return -nbinom_from(np.exp(theta[0]), np.exp(theta[1])).logpmf(values).sum()
 
     res = optimize.minimize(

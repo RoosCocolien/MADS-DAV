@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 from goad_toolkit.visualizer import BasePlot, LinePlot
 from matplotlib import patheffects
+from matplotlib.axes import Axes
 from matplotlib.colors import to_rgb
+from matplotlib.figure import Figure
 from matplotlib.patches import FancyArrowPatch
 
 from roos_pipeline.settings import (
@@ -63,8 +65,8 @@ class EventMarker(BasePlot):
         height: float = 0.9,
         text_offset_days: int = -30,
         color: str = "grey",
-    ):
-        if self.ax is None:
+    ) -> tuple[Figure, Axes]:
+        if self.ax is None or self.fig is None:
             raise ValueError("create_figure() must run before build()")
         # Numeric x, so the marker lands on the right day whether or not the axis
         # carries timezone-aware timestamps.
@@ -95,7 +97,9 @@ class LabelledBarPlot(BarPlot):
     changes, this one follows.
     """
 
-    def build(self, data: pd.DataFrame, x: str, y: str, fmt: str = "%.0f%%", **kwargs):
+    def build(
+        self, data: pd.DataFrame, x: str, y: str, fmt: str = "%.0f%%", **kwargs
+    ) -> tuple[Figure, Axes]:
         fig, ax = super().build(data=data, x=x, y=y, **kwargs)
         for container in ax.containers:
             ax.bar_label(container, fmt=fmt, padding=2, fontsize=9)
@@ -122,8 +126,8 @@ class TopicTrendPlot(BasePlot):
         labels: dict[str, str],
         events: dict[str, str],
         raw_color: str = "lightgray",
-    ):
-        if self.ax is None:
+    ) -> tuple[Figure, Axes]:
+        if self.ax is None or self.fig is None:
             raise ValueError("create_figure() must run before build()")
         # The real weekly values recede to grey; the rolling average carries the colour.
         for topic in colors:
@@ -171,8 +175,8 @@ class PeakLabelledCurves(BasePlot):
         curves: dict[str, tuple[str, str]],
         label_offset: float = 1.5,
         linewidth: float = 2.5,
-    ):
-        if self.ax is None:
+    ) -> tuple[Figure, Axes]:
+        if self.ax is None or self.fig is None:
             raise ValueError("create_figure() must run before build()")
         for column, (color, label) in curves.items():
             self.plot_on(
@@ -221,7 +225,7 @@ class HomeAwayPlot(BasePlot):
         max_width: float = 16.0,
         caption: str | None = None,
         caption_width: int = 175,
-    ):
+    ) -> tuple[Figure, Axes]:
         if self.ax is None or self.fig is None:
             raise ValueError("create_figure() must run before build()")
         ax, fig = self.ax, self.fig
@@ -436,7 +440,7 @@ class StyleMapPlot(BasePlot):
         texts: dict[str, str],
         palette: StylePalette = COLORS.style,
         min_arrow_share: float = LIMITS.min_arrow_share,
-    ):
+    ) -> tuple[Figure, Axes]:
         if self.ax is None or self.fig is None:
             raise ValueError("create_figure() must run before build()")
         fig, ax = self.fig, self.ax
