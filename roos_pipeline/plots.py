@@ -374,7 +374,7 @@ class HomeAwayPlot(BasePlot):
         ax.set_title(
             self.settings.title,
             loc="left",
-            fontsize=20,
+            fontsize=18,
             fontweight="bold",
             color="black",
             pad=40 + 21 * subtitle.count("\n"),
@@ -635,7 +635,7 @@ class StyleMapPlot(BasePlot):
             texts["title"],
             ha="left",
             va="top",
-            fontsize=24,
+            fontsize=18,
             fontweight="bold",
             color=palette.text,
         )

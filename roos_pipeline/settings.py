@@ -447,9 +447,9 @@ class FamiliarPalette(Palette):
 
 
 class PaperPalette(Palette):
-    """The two figures on off-white paper."""
+    """Les 6 and 7's background, matched to the other figures' plain white."""
 
-    paper: str = "#fcfcfb"
+    paper: str = "#ffffff"
 
 
 class StylePalette(PaperPalette):
