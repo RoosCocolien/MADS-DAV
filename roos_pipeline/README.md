@@ -122,7 +122,6 @@ flowchart LR
     results["results"]
     settings["settings"]
     p_config_toml[("config.toml")]
-    p_data_processed[("data/processed/")]
     p_1_messages_parquet[("1_messages.parquet")]
     p_1_unmerged_parquet[("1_unmerged.parquet")]
     p_2_features_parquet[("2_features.parquet")]
@@ -146,7 +145,6 @@ flowchart LR
     main -- "3" --> aggregate
     main -- "4" --> figures
     p_config_toml --> prepare
-    p_data_processed --> prepare
     prepare --> p_1_messages_parquet
     prepare --> p_1_unmerged_parquet
     p_1_messages_parquet --> features
@@ -186,7 +184,7 @@ flowchart LR
     classDef code fill:#fde3cf,stroke:#D55E00,color:#000
     classDef file fill:#fff,stroke:#0072B2,color:#000
     class main,prepare,features,aggregate,figures,plots,results,settings code
-    class p_config_toml,p_data_processed,p_1_messages_parquet,p_1_unmerged_parquet,p_2_features_parquet,p_2_unmerged_features_parquet,p_3_french_stats_json,p_3_home_shares_parquet,p_3_home_stats_json,p_3_language_share_parquet,p_3_style_docs_parquet,p_3_style_means_parquet,p_3_style_stats_json,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
+    class p_config_toml,p_1_messages_parquet,p_1_unmerged_parquet,p_2_features_parquet,p_2_unmerged_features_parquet,p_3_french_stats_json,p_3_home_shares_parquet,p_3_home_stats_json,p_3_language_share_parquet,p_3_style_docs_parquet,p_3_style_means_parquet,p_3_style_stats_json,p_3_symptom_stats_json,p_3_topic_stats_json,p_3_weekly_french_parquet,p_3_weekly_symptoms_parquet,p_3_weekly_topics_parquet,p_figures_pipeline file
 ```
 <!-- atlas-flowchart:end -->
 

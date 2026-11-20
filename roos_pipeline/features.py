@@ -70,6 +70,7 @@ class LanguageFeature(TransformBase):
         feature: str = "language",
         min_chars: int = LIMITS.min_chars,
     ) -> pd.DataFrame:
+        data = data.copy()
         langid.set_languages(languages)
 
         def detect(msg: str) -> str:
@@ -92,6 +93,7 @@ class SplitAtDate(TransformBase):
         column: str = "ts_local",
         feature: str = "period",
     ) -> pd.DataFrame:
+        data = data.copy()
         data[feature] = np.where(data[column] < date, labels[0], labels[1])
         return data
 
@@ -110,6 +112,7 @@ class MentionFlag(TransformBase):
     def transform(
         self, data: pd.DataFrame, columns: list[str], feature: str
     ) -> pd.DataFrame:
+        data = data.copy()
         missing = [c for c in columns if c not in data.columns]
         if missing:
             raise ValueError(f"{self.name}: columns {missing} do not exist yet")
@@ -132,6 +135,7 @@ class NormaliseText(TransformBase):
     def transform(
         self, data: pd.DataFrame, column: str, feature: str = "normalised"
     ) -> pd.DataFrame:
+        data = data.copy()
         data[feature] = data[column].fillna("").map(normalise)
         return data
 
@@ -152,6 +156,7 @@ class PregnancyWeek(TransformBase):
         column: str = "ts_local",
         feature: str = "pregnancy_week",
     ) -> pd.DataFrame:
+        data = data.copy()
         data[feature] = (data[column].dt.normalize() - start).dt.days // 7
         return data
 
@@ -167,6 +172,7 @@ class WithinNext(TransformBase):
     def transform(
         self, data: pd.DataFrame, column: str, window: int, feature: str
     ) -> pd.DataFrame:
+        data = data.copy()
         if not data["ts_local"].is_monotonic_increasing:
             raise ValueError(f"{self.name}: rows must be in time order")
         hit = data[column].to_numpy(dtype=bool)
@@ -192,6 +198,7 @@ class StripWhatsAppNoise(TransformBase):
         patterns: Patterns = PATTERNS,
         word_lists: WordLists = WORD_LISTS,
     ) -> pd.DataFrame:
+        data = data.copy()
         text = data[column].fillna("").str.replace("‎", "", regex=False)
         for pattern in (*patterns.style_system, patterns.link):
             text = text.str.replace(pattern, " ", regex=True, flags=re.IGNORECASE)
@@ -239,6 +246,7 @@ class FrenchByStopwords(TransformBase):
         column: str = "clean_message",
         threshold: float = LIMITS.french_share,
     ) -> pd.DataFrame:
+        data = data.copy()
         unique = unique_stopwords()
         data["french_share"] = [french_share(text, unique) for text in data[column]]
         data["is_french"] = data["french_share"] >= threshold

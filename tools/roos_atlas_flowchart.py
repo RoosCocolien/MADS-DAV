@@ -29,6 +29,30 @@ PACKAGE = "roos_pipeline"
 ENTRY = f"{PACKAGE}.__main__.main"
 START = "<!-- atlas-flowchart:start (drawn by tools/roos_atlas_flowchart.py, do not edit) -->"
 END = "<!-- atlas-flowchart:end -->"
+# Since 0.74 atlas installs as `atlas-code`, in its own folder that is not on PATH.
+ATLAS_NAMES = ("atlas", "atlas-code")
+ATLAS_DEFAULT = (
+    Path.home() / "AppData" / "Local" / "Programs" / "atlas-code" / "atlas-code.exe"
+)
+
+
+# Since 0.74 atlas also follows the tests' calls, whose files sit under pytest's
+# `tmp_path`; those are not places of the pipeline itself.
+TEST_PLACE = "{tmp_path}"
+
+
+def find_atlas() -> str:
+    """Path to the atlas binary: `atlas` or `atlas-code` on PATH, else the default install."""
+    for name in ATLAS_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
+    if ATLAS_DEFAULT.is_file():
+        return str(ATLAS_DEFAULT)
+    raise SystemExit(
+        f"atlas not found (tried {', '.join(ATLAS_NAMES)} on PATH and {ATLAS_DEFAULT}); "
+        "install it or skip with LEFTHOOK_EXCLUDE"
+    )
 
 
 def read_graph() -> dict:
@@ -37,11 +61,7 @@ def read_graph() -> dict:
     The whole repository, not `--package roos_pipeline`: on its own the package loses
     the calls into `wa_analyzer` and `goad_toolkit`, and with them the chat export.
     """
-    atlas = shutil.which("atlas")
-    if atlas is None:
-        raise SystemExit(
-            "atlas is not on PATH; install it or skip with LEFTHOOK_EXCLUDE"
-        )
+    atlas = find_atlas()
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "graph.json"
         subprocess.run(  # noqa: S603 — fixed arguments, no shell
@@ -132,6 +152,10 @@ def touches(graph: dict, modules: list[str]) -> dict[str, dict[str, set[str]]]:
                 continue
             seen.add(current)
             for t in nodes[current].get("touches", []):
+                if t["kind"] in found[owner] and t.get("artifact", "").startswith(
+                    TEST_PLACE
+                ):
+                    continue
                 if t["kind"] in found[owner] and t.get("artifact"):
                     found[owner][t["kind"]].add(t["artifact"])
             stack.extend(

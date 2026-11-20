@@ -69,6 +69,7 @@ class CanonicalAuthor(TransformBase):
     def transform(
         self, data: pd.DataFrame, aliases: dict[str, str], column: str = "author"
     ) -> pd.DataFrame:
+        data = data.copy()
         renamed = data[column].isin(aliases.keys()).sum()
         data[column] = data[column].replace(aliases)
         logger.info(
@@ -90,6 +91,7 @@ class LocalTimestamp(TransformBase):
     def transform(
         self, data: pd.DataFrame, column: str = "timestamp", feature: str = "ts_local"
     ) -> pd.DataFrame:
+        data = data.copy()
         data[feature] = pd.to_datetime(data[column], utc=True).dt.tz_convert(None)
         return data
 

@@ -2071,3 +2071,56 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
   The old `atlas.exe` 0.67.2 is still the one on PATH. The page grows from 6.6 MB to 12.7 MB
   (188 modules / 160 entries, was 176 / 91). Pages serves it at
   https://rooscocolien.github.io/MADS-DAV/atlas-roos-pipeline.html.
+
+## 2026-11-20 — atlas-code 0.74.0: "Nothing in the signature shows that `data` changes"
+
+- 10 findings: every `transform` in `prepare.py` (2) and `features.py` (8) writes columns into
+  the `data` it gets and returns that same object. In the pipeline this is harmless,
+  because goad's `Pipeline.apply` copies the input once, but atlas reads each transform
+  on its own. Roos's leaning: hand back a new DataFrame, because that is what the
+  signature promises.
+- Measured the cost of one extra copy per step, worst case (copying the final, largest frame):
+  - features on `1_messages`: 63k rows, 12 steps, 16 MB, stage takes 2.4 s; copies add 0.05 s (+2%)
+  - features on `1_unmerged`: 71k rows, 19 steps, 12 MB, stage takes 1.4 s; copies add 0.04 s (+3%)
+  - Each old copy is freed by the next step, so peak memory is about two frames (~30 MB).
+
+- **Roos's choice: A, `data = data.copy()` at the top of each `transform`.** In her own words:
+  it changes the least in the current code, and it costs little. Each step's old frame is thrown
+  away, the dataset is small, and the real work (language detection, regex searches) is elsewhere.
+  Also weighed B (`data.assign(...)`, copy and new column in one line) and a mix (B only for the
+  one-line transforms). She stuck with A for **consistency**: every transform looks the same, and
+  one extra line is fine as long as the code stays readable. (Pitfall noted:
+  `data.copy()[feature] = ...` makes a copy and immediately loses it.)
+
+- Done: `data = data.copy()` is the first line of all 10 transforms. In `CanonicalAuthor` it also
+  goes before `renamed = ...`, so it matches the other classes (Roos's call). 101 tests pass,
+  ruff and ty are clean, and `atlas-code check` shows 0 of these findings in `roos_pipeline`. Both
+  stage-2 files come out identical on the real chat, and the input frame is left untouched.
+
+- Roos: apply A in the `roos_` notebook copies too. 15 transforms in 9 notebooks now start with
+  `data = data.copy()` (teacher notebooks left alone). All 9 ran with full parameters; 8 pass.
+  `roos_01.2-irc-chat` stops at its "your turn" assert (add 1 more `full_pipeline.add` step), and
+  it did before this change too. In test mode (`param(1, test=0)`) it passes. `atlas-code check`:
+  0 of these findings left in `roos_pipeline` and the `roos_` notebooks. Atlas page in `docs/`
+  rebuilt.
+
+- Commit hook `roos-atlas-flowchart` failed: the old `atlas.exe` is gone, and the new one is
+  `atlas-code.exe`, not on PATH. Roos's choice: `tools/roos_atlas_flowchart.py` now looks for
+  `atlas`, then `atlas-code` on PATH, then `%LOCALAPPDATA%\Programs\atlas-code\atlas-code.exe`.
+- With 0.74 the chart changed in two ways. (1) atlas follows the tests too, so each file also
+  appeared as `{tmp_path}/...`. The tool now leaves those out (Roos's choice: tests are not the
+  pipeline). (2) The arrow `data/processed/ → prepare` (the chat export as input) is gone,
+  because atlas 0.74 no longer sees that read. Accepted as "what atlas reads"; not drawn back by hand.
+
+- Committed with `LEFTHOOK_EXCLUDE=lychee` (Roos's OK). lychee failed only on
+  https://learn.pttrn.io: its SSL certificate is not trusted (`UnknownIssuer`), in files this
+  commit does not touch. All other hooks passed. (notebooktester passes as a hook, but reports
+  16 notebooks failing with a `'charmap' codec` error, teacher notebooks included. That is an
+  encoding problem on this machine, not this change.)
+
+### Still open (Roos)
+- [ ] lychee/learn.pttrn.io certificate error (work network?); re-run lychee once it is fixed.
+- [ ] notebooktester `'charmap' codec` errors (try `PYTHONUTF8=1`).
+- [ ] Chat export missing as input in the atlas flowchart: check again after a later atlas version.
+- [ ] `roos_01.2-irc-chat`: the "your turn" exercise (one more `full_pipeline.add` step) is not
+      done yet, so the notebook fails with its real parameters.
