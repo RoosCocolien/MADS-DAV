@@ -2059,3 +2059,10 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
 - [ ] Overerving of compositie voor `ShuffleTest`: "HomeTest *is* een shuffletest" of "*heeft*
   er een"? Nu overerving; kun je die keuze verdedigen?
 - [ ] Vertalingen nalezen: klinken de titels en voetnoten als jij?
+
+## 2026-11-20 — atlas-pagina voor GitHub Pages bijgewerkt
+
+- `docs/atlas-roos-pipeline.html` opnieuw geschreven met atlas 0.67.2 vanuit de huidige code
+  (`atlas view --no-open --out docs/atlas-roos-pipeline.html --view '{"part":"roos_pipeline"}'`),
+  zodat de wijzigingen van "verbeter nav atlas type checking" (aggregate.py, plots.py) erin staan.
+  Opent nog steeds op part `roos_pipeline`.
