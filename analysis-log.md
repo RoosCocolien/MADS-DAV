@@ -2066,3 +2066,8 @@ Units per period: before the move 871 fr / 2,977 en; move → Benji 262 fr / 348
   (`atlas view --no-open --out docs/atlas-roos-pipeline.html --view '{"part":"roos_pipeline"}'`),
   zodat de wijzigingen van "verbeter nav atlas type checking" (aggregate.py, plots.py) erin staan.
   Opent nog steeds op part `roos_pipeline`.
+- Later that day: rebuilt with the new atlas, **atlas-code 0.74.0**
+  (`%LOCALAPPDATA%\Programs\atlas-code\atlas-code.exe`, same command, `atlas-code view ...`).
+  The old `atlas.exe` 0.67.2 is still the one on PATH. The page grows from 6.6 MB to 12.7 MB
+  (188 modules / 160 entries, was 176 / 91). Pages serves it at
+  https://rooscocolien.github.io/MADS-DAV/atlas-roos-pipeline.html.
